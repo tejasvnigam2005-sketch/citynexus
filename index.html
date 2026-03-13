@@ -34,6 +34,7 @@
         <li><a href="#features" class="nav-link">Features</a></li>
         <li><a href="#traffic" class="nav-link">Traffic</a></li>
         <li><a href="#crime" class="nav-link">Crime</a></li>
+        <li><a href="#accident" class="nav-link">Accident Detection</a></li>
         <li><a href="#map-report" class="nav-link">Live Map</a></li>
         <li><a href="#contact" class="nav-link">Contact</a></li>
       </ul>
@@ -284,6 +285,88 @@
   </section>
 
   <!-- ================================================
+       ACCIDENT & TRAFFIC JAM DETECTION
+  ================================================ -->
+  <section id="accident" class="section accident-section">
+    <div class="container">
+      <div class="detail-layout">
+        <!-- Left: Description -->
+        <div class="detail-content reveal-left">
+          <span class="section-tag">Module 03</span>
+          <h2 class="section-title">Accident &amp; Traffic Jam <span class="gradient-text-yellow">Detection</span></h2>
+          <p class="detail-desc">
+            Upload recorded footage from any road camera or dashcam. Our AI pipeline extracts frames,
+            detects incidents, classifies severity, and automatically triggers SOS dispatch to the nearest
+            emergency responders.
+          </p>
+          <ul class="detail-features">
+            <li><i class="fas fa-check-circle"></i><span>Supports MP4, MOV, AVI &amp; WebM formats</span></li>
+            <li><i class="fas fa-check-circle"></i><span>Frame-by-frame accident &amp; congestion detection</span></li>
+            <li><i class="fas fa-check-circle"></i><span>Severity classification: Minor / Moderate / Critical</span></li>
+            <li><i class="fas fa-check-circle"></i><span>Auto SOS dispatch with GPS-tagged incident report</span></li>
+          </ul>
+        </div>
+
+        <!-- Right: Upload + Analysis Panel -->
+        <div class="detail-visual reveal-right delay-200">
+          <div class="accident-panel">
+            <div class="dash-header">
+              <span class="dash-dot green"></span>
+              <span class="dash-dot yellow"></span>
+              <span class="dash-dot red"></span>
+              <span class="dash-title">Footage Analysis — Manual Input</span>
+            </div>
+
+            <!-- Upload Zone -->
+            <div class="upload-zone" id="upload-zone">
+              <input type="file" id="video-file-input" accept="video/*" hidden />
+              <div class="upload-zone-inner" id="upload-zone-inner">
+                <div class="upload-icon-wrap">
+                  <i class="fas fa-cloud-upload-alt"></i>
+                </div>
+                <p class="upload-primary">Drop video footage here</p>
+                <p class="upload-secondary">or <button type="button" class="upload-browse-btn" id="upload-browse-btn">browse files</button></p>
+                <p class="upload-hint">MP4, MOV, AVI, WebM — max 2 GB</p>
+              </div>
+              <div class="upload-file-info" id="upload-file-info" style="display:none">
+                <i class="fas fa-film"></i>
+                <div>
+                  <p class="upload-fname" id="upload-fname">filename.mp4</p>
+                  <p class="upload-fsize" id="upload-fsize">0 MB</p>
+                </div>
+                <button type="button" class="upload-remove-btn" id="upload-remove-btn" title="Remove file">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Video Preview -->
+            <div class="video-preview-wrap" id="video-preview-wrap" style="display:none">
+              <video id="footage-preview" class="footage-video" controls></video>
+            </div>
+
+            <!-- Analyze Button -->
+            <button type="button" class="analyze-btn" id="analyze-btn" disabled>
+              <i class="fas fa-magnifying-glass-chart"></i>
+              <span>Analyze Footage</span>
+            </button>
+
+            <!-- Analysis Log -->
+            <div class="analysis-log" id="analysis-log" style="display:none">
+              <div class="log-header">
+                <i class="fas fa-terminal"></i>
+                <span>AI Analysis Log</span>
+                <span class="log-live-dot"></span>
+              </div>
+              <div class="log-entries" id="log-entries"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================
        SOS SECTION
   ================================================ -->
   <section id="sos-section" class="section sos-section">
@@ -424,6 +507,7 @@
           <h4>Platform</h4>
           <a href="#traffic">Traffic Management</a>
           <a href="#crime">Crime Surveillance</a>
+          <a href="#accident">Accident Detection</a>
         </div>
         <div class="footer-links reveal-up delay-300">
           <h4>Resources</h4>

@@ -609,4 +609,163 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 1800);
         });
     }
+    // --- Accident Detection — Manual Video Input ---
+    (function initAccidentDetection() {
+        const uploadZone    = document.getElementById('upload-zone');
+        const fileInput     = document.getElementById('video-file-input');
+        const browseBtn     = document.getElementById('upload-browse-btn');
+        const zoneInner     = document.getElementById('upload-zone-inner');
+        const fileInfo      = document.getElementById('upload-file-info');
+        const fnameLbl      = document.getElementById('upload-fname');
+        const fsizeLbl      = document.getElementById('upload-fsize');
+        const removeBtn     = document.getElementById('upload-remove-btn');
+        const previewWrap   = document.getElementById('video-preview-wrap');
+        const previewVideo  = document.getElementById('footage-preview');
+        const analyzeBtn    = document.getElementById('analyze-btn');
+        const analysisLog   = document.getElementById('analysis-log');
+        const logEntries    = document.getElementById('log-entries');
+
+        if (!uploadZone) return; // guard if elements missing
+
+        let currentObjectURL = null;
+
+        // Helper: format file size
+        function formatBytes(bytes) {
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        // Helper: get current time string HH:MM:SS
+        function nowStr() {
+            return new Date().toLocaleTimeString('en-GB', { hour12: false });
+        }
+
+        // Apply selected file
+        function applyFile(file) {
+            if (!file || !file.type.startsWith('video/')) {
+                addLogEntry('warn', 'Invalid file type. Please upload a video file.', 'warn');
+                return;
+            }
+            // Revoke previous URL
+            if (currentObjectURL) URL.revokeObjectURL(currentObjectURL);
+            currentObjectURL = URL.createObjectURL(file);
+
+            // Update zone UI
+            fnameLbl.textContent = file.name;
+            fsizeLbl.textContent = formatBytes(file.size);
+            zoneInner.style.display = 'none';
+            fileInfo.style.display = 'flex';
+            uploadZone.classList.add('has-file');
+            uploadZone.classList.remove('dragover');
+
+            // Show video preview
+            previewVideo.src = currentObjectURL;
+            previewWrap.style.display = 'block';
+
+            // Enable analyze
+            analyzeBtn.disabled = false;
+
+            // Reset any previous log
+            analysisLog.style.display = 'none';
+            logEntries.innerHTML = '';
+            analyzeBtn.classList.remove('running');
+        }
+
+        // Remove / reset
+        function resetUpload() {
+            if (currentObjectURL) {
+                URL.revokeObjectURL(currentObjectURL);
+                currentObjectURL = null;
+            }
+            fileInput.value = '';
+            zoneInner.style.display = 'flex';
+            fileInfo.style.display = 'none';
+            uploadZone.classList.remove('has-file');
+            previewVideo.src = '';
+            previewWrap.style.display = 'none';
+            analyzeBtn.disabled = true;
+            analysisLog.style.display = 'none';
+            logEntries.innerHTML = '';
+            analyzeBtn.classList.remove('running');
+        }
+
+        // Click to browse
+        browseBtn.addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
+        uploadZone.addEventListener('click', () => { if (!uploadZone.classList.contains('has-file')) fileInput.click(); });
+
+        // File input change
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files && fileInput.files[0]) applyFile(fileInput.files[0]);
+        });
+
+        // Drag & Drop
+        uploadZone.addEventListener('dragenter', (e) => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+        uploadZone.addEventListener('dragleave', (e) => { if (!uploadZone.contains(e.relatedTarget)) uploadZone.classList.remove('dragover'); });
+        uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); });
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            const file = e.dataTransfer.files && e.dataTransfer.files[0];
+            if (file) applyFile(file);
+        });
+
+        // Remove button
+        removeBtn.addEventListener('click', (e) => { e.stopPropagation(); resetUpload(); });
+
+        // ---- Analysis Log Helper ----
+        function addLogEntry(type, text, dotClass) {
+            const entry = document.createElement('div');
+            entry.className = `log-entry${type === 'result-ok' ? ' result-ok' : type === 'result-critical' ? ' result-critical' : type === 'result-warn' ? ' result-warn' : ''}`;
+            entry.style.animationDelay = '0ms';
+            entry.innerHTML = `<span class="log-dot ${dotClass || 'info'}"></span><span class="log-ts">[${nowStr()}]</span><span class="log-text">&nbsp;${text}</span>`;
+            logEntries.appendChild(entry);
+            logEntries.scrollTop = logEntries.scrollHeight;
+        }
+
+        // ---- Analyze Button ----
+        analyzeBtn.addEventListener('click', () => {
+            if (analyzeBtn.disabled) return;
+            analyzeBtn.disabled = true;
+            analyzeBtn.classList.add('running');
+            logEntries.innerHTML = '';
+            analysisLog.style.display = 'block';
+
+            // Determine a pseudo-random result based on filename (deterministic per file)
+            const fname = fnameLbl.textContent.toLowerCase();
+            const seed = fname.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+            const resultType = seed % 3; // 0 = accident, 1 = traffic jam, 2 = clear
+
+            const steps = [
+                { delay: 0,    dot: 'info',     text: 'Initializing AI pipeline... model loaded.' },
+                { delay: 600,  dot: 'info',     text: 'Extracting keyframes at 2 fps...' },
+                { delay: 1300, dot: 'info',     text: `Processed ${48 + (seed % 30)} frames from video.` },
+                { delay: 1950, dot: 'info',     text: 'Running object detection (vehicles, persons, debris)...' },
+                { delay: 2700, dot: 'warn',     text: 'Anomalous motion vectors detected in ROI zone 3.' },
+                { delay: 3400, dot: 'info',     text: 'Running incident classification model...' },
+                { delay: 4200, dot: 'info',     text: 'Cross-referencing with traffic density baseline...' },
+                { delay: 5000, dot: 'info',     text: 'Preparing SOS dispatch decision...' },
+            ];
+
+            let resultEntry;
+            if (resultType === 0) {
+                resultEntry = { delay: 5800, dot: 'critical', text: '⚠ ACCIDENT DETECTED — Severity: CRITICAL — SOS dispatched to nearest units.', type: 'result-critical' };
+            } else if (resultType === 1) {
+                resultEntry = { delay: 5800, dot: 'warn', text: '⚠ TRAFFIC JAM DETECTED — Severity: MODERATE — Re-routing protocol triggered.', type: 'result-warn' };
+            } else {
+                resultEntry = { delay: 5800, dot: 'ok', text: '✓ No incident detected — Traffic flow nominal. No SOS required.', type: 'result-ok' };
+            }
+
+            steps.forEach(({ delay, dot, text }) => {
+                setTimeout(() => addLogEntry('info', text, dot), delay);
+            });
+
+            setTimeout(() => {
+                addLogEntry(resultEntry.type, resultEntry.text, resultEntry.dot);
+                analyzeBtn.classList.remove('running');
+                analyzeBtn.disabled = false;
+                analyzeBtn.innerHTML = '<i class="fas fa-rotate-right"></i><span>Re-analyze</span>';
+            }, resultEntry.delay);
+        });
+    })();
+
 });
