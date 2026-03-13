@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CityNexus — Smart City Command Platform</title>
+  <meta name="description" content="CityNexus is a smart city command platform for real-time traffic management, crime surveillance, AI voice assistance, and SOS emergency response." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Global overlays -->
+  <div class="grid-overlay" aria-hidden="true"></div>
+  <div class="scanline" aria-hidden="true"></div>
+
+  <!-- Particle canvas -->
+  <canvas id="particle-canvas"></canvas>
+
+  <!-- ================================================
+       NAVIGATION
+  ================================================ -->
+  <nav id="navbar" class="navbar">
+    <div class="nav-container">
+      <a href="#" class="nav-logo">
+        <div class="logo-icon"><i class="fas fa-city"></i></div>
+        <span class="logo-text">City<span class="accent">Nexus</span></span>
+      </a>
+      <ul class="nav-links" id="nav-links">
+        <li><a href="#features" class="nav-link">Features</a></li>
+        <li><a href="#traffic" class="nav-link">Traffic</a></li>
+        <li><a href="#crime" class="nav-link">Crime</a></li>
+        <li><a href="#map-report" class="nav-link">Live Map</a></li>
+        <li><a href="#contact" class="nav-link">Contact</a></li>
+      </ul>
+      <div class="nav-actions">
+        <button id="sos-nav-btn" class="sos-btn-nav" title="Emergency SOS">
+          <i class="fas fa-exclamation-triangle"></i> SOS
+        </button>
+        <button id="ai-toggle-btn" class="ai-toggle-nav" title="AI Voice Assistant">
+          <i class="fas fa-microphone"></i>
+        </button>
+        <button class="mobile-toggle" id="mobile-toggle" aria-label="Toggle menu">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ================================================
+       HERO
+  ================================================ -->
+  <section id="hero" class="hero">
+    <div class="hero-orbs" aria-hidden="true">
+      <div class="orb orb-1"></div>
+      <div class="orb orb-2"></div>
+      <div class="orb orb-3"></div>
+    </div>
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span class="badge-dot"></span>
+        <span>AI-Powered City Infrastructure</span>
+      </div>
+      <h1 class="hero-title">
+        Intelligent City
+        <span class="gradient-text glitch" data-text="Command Center">Command Center</span>
+      </h1>
+      <p class="hero-subtitle">
+        Real-time traffic management, AI-powered surveillance, and instant emergency response
+        — all unified in one command platform.
+      </p>
+      <div class="hero-actions">
+        <a href="#features" class="btn btn-primary">
+          <span>Explore Platform</span>
+          <i class="fas fa-arrow-right"></i>
+        </a>
+        <button id="hero-sos-btn" class="btn btn-sos-hero">
+          <i class="fas fa-exclamation-circle"></i>
+          <span>Emergency SOS</span>
+        </button>
+      </div>
+      <div class="hero-stats">
+        <div class="stat-item">
+          <span class="stat-number" data-count="2847">0</span>
+          <span class="stat-label">Cameras Active</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-number" data-count="156">0</span>
+          <span class="stat-label">Intersections</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-number" data-count="34">0</span>
+          <span class="stat-label">Ambulances Online</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-number" data-count="99.8" data-decimal="true">0</span>
+          <span class="stat-label">Uptime %</span>
+        </div>
+      </div>
+    </div>
+    <div class="scroll-indicator">
+      <div class="mouse"><div class="wheel"></div></div>
+      <span>Scroll to explore</span>
+    </div>
+  </section>
+
+  <!-- ================================================
+       FEATURES OVERVIEW
+  ================================================ -->
+  <section id="features" class="section features-section">
+    <div class="container">
+      <div class="section-header reveal-up">
+        <span class="section-tag">Core Capabilities</span>
+        <h2 class="section-title">Two Pillars of <span class="gradient-text">Smart City</span> Management</h2>
+        <p class="section-desc">An integrated platform addressing the most critical aspects of urban safety and efficiency.</p>
+      </div>
+      <div class="features-grid">
+        <a href="#traffic" class="feature-card reveal-zoom delay-100" data-feature="traffic">
+          <div class="feature-icon traffic-icon">
+            <i class="fas fa-traffic-light"></i>
+          </div>
+          <div class="feature-body">
+            <h3>Traffic Management</h3>
+            <p>AI-driven signal optimization, congestion prediction, and real-time rerouting across the entire city grid.</p>
+          </div>
+          <div class="feature-stat">
+            <span class="feature-stat-num">42%</span>
+            <span>avg. congestion reduction</span>
+          </div>
+        </a>
+        <a href="#crime" class="feature-card reveal-zoom delay-200" data-feature="crime">
+          <div class="feature-icon crime-icon">
+            <i class="fas fa-shield-halved"></i>
+          </div>
+          <div class="feature-body">
+            <h3>Crime Surveillance</h3>
+            <p>Automatic crime detection via surveillance feeds with instant alerts to the nearest police station.</p>
+          </div>
+          <div class="feature-stat">
+            <span class="feature-stat-num">94%</span>
+            <span>detection accuracy</span>
+          </div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================
+       TRAFFIC MANAGEMENT
+  ================================================ -->
+  <section id="traffic" class="section detail-section">
+    <div class="container">
+      <div class="detail-layout">
+        <div class="detail-content reveal-left">
+          <span class="section-tag">Module 01</span>
+          <h2 class="section-title">Intelligent <span class="gradient-text">Traffic Management</span></h2>
+          <p class="detail-desc">
+            Our AI analyzes real-time traffic flow from thousands of camera feeds, optimizing signal timing
+            dynamically and predicting congestion before it forms.
+          </p>
+          <ul class="detail-features">
+            <li><i class="fas fa-check-circle"></i><span>Dynamic signal timing based on real-time density</span></li>
+            <li><i class="fas fa-check-circle"></i><span>Predictive congestion alerts 15 mins ahead</span></li>
+            <li><i class="fas fa-check-circle"></i><span>Emergency vehicle priority corridors</span></li>
+            <li><i class="fas fa-check-circle"></i><span>Integration with Google Maps &amp; Waze for rerouting</span></li>
+          </ul>
+        </div>
+        <div class="detail-visual reveal-right delay-200">
+          <div class="traffic-dashboard">
+            <div class="dash-header">
+              <span class="dash-dot green"></span>
+              <span class="dash-dot yellow"></span>
+              <span class="dash-dot red"></span>
+              <span class="dash-title">Traffic Command — Live</span>
+            </div>
+            <div class="traffic-grid-visual">
+              <div class="intersection" data-status="green">
+                <div class="signal-light"></div>
+                <span>NH-48 &amp; MG Rd</span>
+                <span class="flow-rate">2,140 veh/hr</span>
+              </div>
+              <div class="intersection" data-status="yellow">
+                <div class="signal-light"></div>
+                <span>Ring Rd &amp; 5th Ave</span>
+                <span class="flow-rate">3,890 veh/hr</span>
+              </div>
+              <div class="intersection" data-status="red">
+                <div class="signal-light"></div>
+                <span>Central &amp; Park St</span>
+                <span class="flow-rate">5,210 veh/hr</span>
+              </div>
+              <div class="intersection" data-status="green">
+                <div class="signal-light"></div>
+                <span>Tech Park Jnc</span>
+                <span class="flow-rate">1,650 veh/hr</span>
+              </div>
+            </div>
+            <div class="traffic-chart">
+              <div class="chart-bar" style="--height: 65%" data-label="Mon"></div>
+              <div class="chart-bar" style="--height: 80%" data-label="Tue"></div>
+              <div class="chart-bar" style="--height: 55%" data-label="Wed"></div>
+              <div class="chart-bar" style="--height: 90%" data-label="Thu"></div>
+              <div class="chart-bar" style="--height: 75%" data-label="Fri"></div>
+              <div class="chart-bar" style="--height: 95%" data-label="Sat"></div>
+              <div class="chart-bar" style="--height: 40%" data-label="Sun"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================
+       CRIME REPORTING
+  ================================================ -->
+  <section id="crime" class="section detail-section alt-bg">
+    <div class="container">
+      <div class="detail-layout reverse">
+        <div class="detail-content reveal-right">
+          <span class="section-tag">Module 02</span>
+          <h2 class="section-title">AI-Driven <span class="gradient-text">Crime Surveillance</span></h2>
+          <p class="detail-desc">
+            Our AI models detect suspicious activities — fights, theft, vandalism — directly from surveillance
+            feeds and route alerts instantly to the nearest police station.
+          </p>
+          <ul class="detail-features">
+            <li><i class="fas fa-check-circle"></i><span>Behavior analysis on live camera feeds</span></li>
+            <li><i class="fas fa-check-circle"></i><span>Instant alert to nearest police station</span></li>
+            <li><i class="fas fa-check-circle"></i><span>Video clips &amp; GPS coordinates attached</span></li>
+            <li><i class="fas fa-check-circle"></i><span>Threat classification: low / medium / high / critical</span></li>
+          </ul>
+        </div>
+        <div class="detail-visual reveal-left delay-200">
+          <div class="crime-panel">
+            <div class="dash-header">
+              <span class="dash-dot green"></span>
+              <span class="dash-dot yellow"></span>
+              <span class="dash-dot red"></span>
+              <span class="dash-title">Crime Watch — AI Patrol</span>
+            </div>
+            <div class="crime-feed">
+              <div class="crime-alert high">
+                <div class="crime-alert-header">
+                  <span class="crime-badge high">HIGH</span>
+                  <span class="crime-time">22:18:45</span>
+                </div>
+                <p>Assault detected — Sector 14, Market Road</p>
+                <div class="crime-meta">
+                  <span><i class="fas fa-map-marker-alt"></i> 2.1km from PS-07</span>
+                  <span><i class="fas fa-paper-plane"></i> Alert Sent</span>
+                </div>
+              </div>
+              <div class="crime-alert medium">
+                <div class="crime-alert-header">
+                  <span class="crime-badge medium">MEDIUM</span>
+                  <span class="crime-time">22:11:20</span>
+                </div>
+                <p>Suspicious loitering — ATM Zone, Block C</p>
+                <div class="crime-meta">
+                  <span><i class="fas fa-map-marker-alt"></i> 0.8km from PS-03</span>
+                  <span><i class="fas fa-paper-plane"></i> Under Review</span>
+                </div>
+              </div>
+              <div class="crime-alert low">
+                <div class="crime-alert-header">
+                  <span class="crime-badge low">LOW</span>
+                  <span class="crime-time">21:55:10</span>
+                </div>
+                <p>Vandalism attempt — Park Wall, Zone 6</p>
+                <div class="crime-meta">
+                  <span><i class="fas fa-map-marker-alt"></i> 1.5km from PS-11</span>
+                  <span><i class="fas fa-check-circle"></i> Resolved</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================
+       SOS SECTION
+  ================================================ -->
+  <section id="sos-section" class="section sos-section">
+    <div class="sos-section-bg" aria-hidden="true"></div>
+    <div class="container">
+      <div class="sos-content reveal-zoom">
+        <div class="sos-icon-container">
+          <div class="sos-pulse"></div>
+          <div class="sos-pulse delay-1"></div>
+          <div class="sos-pulse delay-2"></div>
+          <i class="fas fa-exclamation-triangle sos-main-icon"></i>
+        </div>
+        <h2 class="section-title">Emergency <span class="gradient-text-red">SOS</span></h2>
+        <p class="sos-desc">
+          One press sends your location, camera feeds, and emergency alert to police, ambulance, and
+          fire departments simultaneously. Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> anywhere.
+        </p>
+        <div class="sos-button-wrap">
+          <div class="sos-ring r1" aria-hidden="true"></div>
+          <div class="sos-ring r2" aria-hidden="true"></div>
+          <div class="sos-ring r3" aria-hidden="true"></div>
+          <button id="sos-main-btn" class="sos-button">
+            <span class="sos-button-inner">
+              <i class="fas fa-exclamation-triangle"></i>
+              <span>ACTIVATE SOS</span>
+            </span>
+          </button>
+        </div>
+        <div class="sos-info-row">
+          <div class="sos-info-item"><i class="fas fa-location-crosshairs"></i><span>Auto-shares GPS location</span></div>
+          <div class="sos-info-item"><i class="fas fa-video"></i><span>Nearest cameras activated</span></div>
+          <div class="sos-info-item"><i class="fas fa-bolt"></i><span>Response in under 30 seconds</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================
+       LIVE MAP & REPORTING
+  ================================================ -->
+  <section id="map-report" class="section map-section">
+    <div class="container">
+      <div class="section-header reveal-up">
+        <span class="section-tag">Live Intelligence</span>
+        <h2 class="section-title">City Map &amp; <span class="gradient-text">Manual Reporting</span></h2>
+        <p class="section-desc">View live city data and submit manual incident reports directly to the command center.</p>
+      </div>
+      <div class="map-report-layout">
+        <div class="map-container-wrapper reveal-left delay-200">
+          <div class="map-controls">
+            <button class="map-btn active" data-mode="normal"><i class="fas fa-map"></i> Normal</button>
+            <button class="map-btn" data-mode="satellite"><i class="fas fa-satellite"></i> Satellite</button>
+            <button class="map-btn" data-mode="3d"><i class="fas fa-layer-group"></i> 3D Terrain</button>
+          </div>
+          <div id="city-map" class="city-map"></div>
+        </div>
+        <div class="report-form-container reveal-right delay-400">
+          <h3><i class="fas fa-file-alt"></i> File an Incident Report</h3>
+          <form id="incident-form" class="incident-form">
+            <div class="form-group">
+              <label for="incident-type">Incident Type</label>
+              <select id="incident-type" required>
+                <option value="">Select Category...</option>
+                <option value="traffic">Traffic Congestion</option>
+                <option value="crime">Crime / Suspicious Activity</option>
+                <option value="infrastructure">Infrastructure Damage</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="incident-location">Location</label>
+              <div class="input-with-icon">
+                <i class="fas fa-map-marker-alt"></i>
+                <input type="text" id="incident-location" placeholder="e.g. MG Road Junction" required />
+                <button type="button" class="btn-locate" id="btn-locate" title="Use current location"><i class="fas fa-crosshairs"></i></button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="incident-desc">Description</label>
+              <textarea id="incident-desc" rows="4" placeholder="Provide details about the incident..." required></textarea>
+            </div>
+            <div class="form-group checkbox-group">
+              <input type="checkbox" id="incident-urgent" />
+              <label for="incident-urgent" class="text-danger">Mark as High Priority / Urgent</label>
+            </div>
+            <button type="submit" class="btn btn-primary submit-btn" style="width:100%">
+              <span>Submit Report</span>
+              <i class="fas fa-paper-plane"></i>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================
+       CONTACT
+  ================================================ -->
+  <section id="contact" class="section contact-section">
+    <div class="container">
+      <div class="section-header reveal-up">
+        <span class="section-tag">Get In Touch</span>
+        <h2 class="section-title">Connect With <span class="gradient-text">CityNexus</span></h2>
+      </div>
+      <div class="contact-grid">
+        <div class="contact-card reveal-up delay-100">
+          <div class="contact-card-icon"><i class="fas fa-building"></i></div>
+          <h3>Control Center</h3>
+          <p>Smart City Command Hub<br/>Sector 22, Block A<br/>New Delhi, India</p>
+        </div>
+        <div class="contact-card reveal-up delay-200">
+          <div class="contact-card-icon"><i class="fas fa-phone-volume"></i></div>
+          <h3>Emergency Line</h3>
+          <p>112 — National Emergency<br/>100 — Police<br/>108 — Ambulance</p>
+        </div>
+        <div class="contact-card reveal-up delay-300">
+          <div class="contact-card-icon"><i class="fas fa-envelope"></i></div>
+          <h3>Administration</h3>
+          <p>admin@citynexus.gov<br/>support@citynexus.gov</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================
+       FOOTER
+  ================================================ -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand reveal-left delay-100">
+          <a href="#" class="nav-logo">
+            <div class="logo-icon"><i class="fas fa-city"></i></div>
+            <span class="logo-text">City<span class="accent">Nexus</span></span>
+          </a>
+          <p>AI-powered smart city command platform. Safer cities, faster response, smarter infrastructure.</p>
+        </div>
+        <div class="footer-links reveal-up delay-200">
+          <h4>Platform</h4>
+          <a href="#traffic">Traffic Management</a>
+          <a href="#crime">Crime Surveillance</a>
+        </div>
+        <div class="footer-links reveal-up delay-300">
+          <h4>Resources</h4>
+          <a href="#">API Documentation</a>
+          <a href="#">Integration Guide</a>
+          <a href="#">Status Page</a>
+          <a href="#">Support</a>
+        </div>
+        <div class="footer-links reveal-right delay-400">
+          <h4>Legal</h4>
+          <a href="#">Privacy Policy</a>
+          <a href="#">Terms of Service</a>
+          <a href="#">Data Protection</a>
+          <a href="#">Compliance</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2026 CityNexus — Smart City Command Platform. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ================================================
+       AI VOICE ASSISTANT
+  ================================================ -->
+  <div id="ai-assistant" class="ai-assistant">
+    <div class="ai-panel" id="ai-panel">
+      <div class="ai-panel-header">
+        <div class="ai-panel-title">
+          <div class="ai-avatar"><i class="fas fa-robot"></i></div>
+          <div>
+            <h3>CityNexus AI</h3>
+            <span class="ai-status-text">Voice Ready</span>
+          </div>
+        </div>
+        <button id="ai-panel-close" class="ai-panel-close"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="ai-chat" id="ai-chat">
+        <div class="ai-message bot">
+          <div class="ai-msg-avatar"><i class="fas fa-robot"></i></div>
+          <div class="ai-msg-content">
+            <p>Hello! I'm CityNexus AI. Ask me about <strong>traffic status</strong> or <strong>activate SOS</strong>.</p>
+          </div>
+        </div>
+      </div>
+      <div class="ai-input-area">
+        <button id="ai-voice-btn" class="ai-voice-btn" title="Hold to speak"><i class="fas fa-microphone"></i></button>
+        <input type="text" id="ai-text-input" class="ai-text-input" placeholder="Type or hold mic to speak..." />
+        <button id="ai-send-btn" class="ai-send-btn" title="Send"><i class="fas fa-paper-plane"></i></button>
+      </div>
+      <div class="ai-voice-indicator" id="ai-voice-indicator">
+        <div class="voice-wave"><span></span><span></span><span></span><span></span><span></span></div>
+        <p>Listening...</p>
+      </div>
+    </div>
+    <button id="ai-fab" class="ai-fab" title="AI Voice Assistant"><i class="fas fa-robot"></i></button>
+  </div>
+
+  <!-- ================================================
+       SOS MODAL
+  ================================================ -->
+  <div id="sos-modal" class="sos-modal">
+    <div class="sos-modal-content">
+      <div class="sos-modal-header">
+        <i class="fas fa-exclamation-triangle"></i>
+        <h2>SOS ACTIVATED</h2>
+      </div>
+      <div class="sos-modal-body" id="sos-modal-body">
+        <div class="sos-step active" id="sos-step-1">
+          <div class="sos-step-icon"><i class="fas fa-location-crosshairs"></i></div>
+          <span>Acquiring your GPS location...</span>
+        </div>
+        <div class="sos-step" id="sos-step-2">
+          <div class="sos-step-icon"><i class="fas fa-video"></i></div>
+          <span>Activating nearest surveillance cameras...</span>
+        </div>
+        <div class="sos-step" id="sos-step-3">
+          <div class="sos-step-icon"><i class="fas fa-paper-plane"></i></div>
+          <span>Alerting Police, Ambulance &amp; Fire Dept...</span>
+        </div>
+        <div class="sos-step" id="sos-step-4">
+          <div class="sos-step-icon"><i class="fas fa-check-circle"></i></div>
+          <span>Emergency teams dispatched. Help is on the way.</span>
+        </div>
+      </div>
+      <div class="sos-modal-location" id="sos-location">
+        <i class="fas fa-map-marker-alt"></i>
+        <span>Location: Acquiring...</span>
+      </div>
+      <button id="sos-cancel-btn" class="sos-cancel-btn">Cancel SOS</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="script.js"></script>
+</body>
+</html>
