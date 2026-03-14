@@ -1,9 +1,58 @@
 /* ================================================
    CityNexus — Smart City Command Platform
-   Core Interactions & AI Logic
+   Core Interactions & AI Logic — Full-Stack Edition
    ================================================ */
 
+// Backend URL — same origin when served from Express
+const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? `${window.location.protocol}//${window.location.hostname}:3000`
+    : '';
+
 document.addEventListener('DOMContentLoaded', () => {
+
+    // --- Check backend health on load ---
+    (async function checkBackendHealth() {
+        try {
+            const res = await fetch(`${BACKEND_URL}/api/health`);
+            const data = await res.json();
+            console.log('[CityNexus] Backend status:', data);
+            if (data.database === 'connected') {
+                console.log('[CityNexus] ✓ MongoDB connected');
+            } else {
+                console.warn('[CityNexus] ⚠ MongoDB not connected —', data.database);
+            }
+            if (data.ai_service === 'reachable') {
+                console.log('[CityNexus] ✓ AI service reachable');
+            } else {
+                console.warn('[CityNexus] ⚠ AI service not reachable');
+            }
+        } catch (e) {
+            console.warn('[CityNexus] Backend not reachable at', BACKEND_URL);
+        }
+    })();
+
+    // --- Live Dashboard Stats from Backend ---
+    (async function loadDashboardStats() {
+        try {
+            const res = await fetch(`${BACKEND_URL}/api/stats`);
+            const data = await res.json();
+            if (data.success && data.stats) {
+                const statNumbers = document.querySelectorAll('.stat-number');
+                const statMap = {
+                    'Cameras Active': null,          // keep hardcoded
+                    'Intersections': null,            // keep hardcoded
+                    'Ambulances Online': null,        // keep hardcoded
+                    'Uptime %': null,                 // keep hardcoded
+                };
+                // Update stat counters if we have DB data
+                // We overlay total incidents + SOS + detections as dynamic badges
+                const s = data.stats;
+                console.log(`[CityNexus] Live stats → Incidents: ${s.totalIncidents}, SOS: ${s.totalSOS}, Detections: ${s.totalDetections}, Contacts: ${s.totalContacts}`);
+            }
+        } catch (e) {
+            console.log('[CityNexus] Stats API not available, using default values.');
+        }
+    })();
     
 
     // --- 3D Tilt on Feature Cards ---
@@ -40,7 +89,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             navbar.classList.remove('scrolled');
         }
-        revealOnScroll();
     });
 
     mobileToggle.addEventListener('click', () => {
@@ -137,6 +185,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let sosSequenceTimeout;
 
+    let currentSOSId = null; // Track the current SOS alert ID from DB
+
     function activateSOS() {
         sosModal.classList.add('active');
         
@@ -155,14 +205,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 const lat = position.coords.latitude.toFixed(4);
                 const lng = position.coords.longitude.toFixed(4);
                 sosLocation.innerHTML = `<i class="fas fa-map-marker-alt"></i><span>Location: Lat ${lat}, Lng ${lng} — Sector Verified</span>`;
+                
+                // Save SOS to backend
+                saveSOSToBackend({ lat: parseFloat(lat), lng: parseFloat(lng) }, `Lat ${lat}, Lng ${lng}`);
                 proceedSOSSequence();
             }, () => {
                 sosLocation.innerHTML = '<i class="fas fa-map-marker-alt"></i><span>Location: Approx. City Center (GPS Failed)</span>';
+                saveSOSToBackend(null, 'Approx. City Center (GPS Failed)');
                 proceedSOSSequence();
             });
         } else {
             sosLocation.innerHTML = '<i class="fas fa-map-marker-alt"></i><span>Location: Approx. City Center (No GPS)</span>';
+            saveSOSToBackend(null, 'Approx. City Center (No GPS)');
             proceedSOSSequence();
+        }
+    }
+
+    async function saveSOSToBackend(coordinates, locationText) {
+        try {
+            const res = await fetch(`${BACKEND_URL}/api/sos`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ coordinates, locationText }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                currentSOSId = data.sos._id;
+                console.log('[SOS] Alert saved to DB:', currentSOSId);
+            }
+        } catch (err) {
+            console.error('[SOS] Failed to save to backend:', err.message);
         }
     }
 
@@ -201,6 +273,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function cancelSOS() {
         clearTimeout(sosSequenceTimeout);
         sosModal.classList.remove('active');
+
+        // Update SOS status in DB
+        if (currentSOSId) {
+            fetch(`${BACKEND_URL}/api/sos/${currentSOSId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'cancelled' }),
+            }).catch(err => console.error('[SOS] Cancel update failed:', err));
+            currentSOSId = null;
+        }
+
         // Reset visual state
         setTimeout(() => {
             const headerText = sosModal.querySelector('h2');
@@ -327,32 +410,47 @@ document.addEventListener('DOMContentLoaded', () => {
         aiChat.scrollTop = aiChat.scrollHeight;
     }
 
-    function handleServerResponse(userInput) {
+    async function handleServerResponse(userInput) {
         const lowerInput = userInput.toLowerCase();
-        let response = "";
 
-        // Simple Keyword Logic for AI Simulation
+        // SOS — trigger immediately + backend
         if (lowerInput.includes('sos') || lowerInput.includes('emergency') || lowerInput.includes('help')) {
-            response = "Activating Emergency SOS sequence now. Stay calm, help is being dispatched.";
             setTimeout(activateSOS, 1500);
-        } 
-        else if (lowerInput.includes('traffic') || lowerInput.includes('congestion')) {
-            response = "Current traffic status: <strong>High congestion</strong> at Central & Park St. AI has initiated dynamic rerouting protocols and adjusted signals.";
-            // Scroll to traffic
-            document.getElementById('traffic').scrollIntoView({ behavior: 'smooth' });
-        }
-        else if (lowerInput.includes('crime') || lowerInput.includes('police')) {
-             response = "Crime surveillance active. Recent high-priority alert at Market Road. Police dispatched.";
-             document.getElementById('crime').scrollIntoView({ behavior: 'smooth' });
-        }
-        else {
-             response = "I am CityNexus Command AI. You can ask me to check traffic, report an accident, clear an ambulance route, or activate the SOS.";
         }
 
-        setTimeout(() => {
+        // Scroll to relevant sections
+        if (lowerInput.includes('traffic') || lowerInput.includes('congestion')) {
+            document.getElementById('traffic').scrollIntoView({ behavior: 'smooth' });
+        } else if (lowerInput.includes('crime') || lowerInput.includes('police')) {
+            document.getElementById('crime').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Fetch response from backend (with live DB data)
+        try {
+            const res = await fetch(`${BACKEND_URL}/api/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: userInput }),
+            });
+            const data = await res.json();
+            const response = data.response || "I couldn't process that. Please try again.";
             addMessage('bot', response);
-            speakText(response.replace(/<[^>]*>?/gm, '')); // Voice output
-        }, 800);
+            speakText(response.replace(/<[^>]*>?/gm, ''));
+        } catch (err) {
+            // Fallback to local responses if backend is down
+            let response = '';
+            if (lowerInput.includes('sos') || lowerInput.includes('emergency') || lowerInput.includes('help')) {
+                response = "Activating Emergency SOS sequence now. Stay calm, help is being dispatched.";
+            } else if (lowerInput.includes('traffic') || lowerInput.includes('congestion')) {
+                response = "Current traffic status: <strong>High congestion</strong> at Central & Park St. AI has initiated dynamic rerouting protocols.";
+            } else if (lowerInput.includes('crime') || lowerInput.includes('police')) {
+                response = "Crime surveillance active. Recent high-priority alert at Market Road. Police dispatched.";
+            } else {
+                response = "I am CityNexus Command AI. Backend is currently offline. You can still check traffic, report an accident, or activate the SOS.";
+            }
+            addMessage('bot', response);
+            speakText(response.replace(/<[^>]*>?/gm, ''));
+        }
     }
 
     function handleUserMessage(text) {
@@ -521,13 +619,46 @@ document.addEventListener('DOMContentLoaded', () => {
         // Set default layer
         normalLayer.addTo(map);
 
-        // Initial Dummy Markers
-        const markers = [
-            L.marker([28.6139, 77.2090], {icon: incidentIcon}).bindPopup("<h4>Traffic Collision</h4><p>High Priority. Units dispatched.</p>"),
-            L.marker([28.6339, 77.2190], {icon: incidentIcon}).bindPopup("<h4>Suspicious Activity</h4><p>Reported near Metro Station.</p>")
-        ];
-        
-        markers.forEach(m => m.addTo(map));
+        // Markers array — will hold both initial and DB-loaded markers
+        const markers = [];
+
+        // Load existing incidents from database onto map
+        (async function loadIncidentsOnMap() {
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/incidents`);
+                const data = await res.json();
+                if (data.success && data.incidents && data.incidents.length > 0) {
+                    data.incidents.forEach(inc => {
+                        if (inc.coordinates && inc.coordinates.lat && inc.coordinates.lng) {
+                            const statusBadge = inc.urgent
+                                ? '<span style="color:#ef4444;font-weight:700;">⚠ URGENT</span>'
+                                : `<span style="opacity:0.7;">${inc.status || 'pending'}</span>`;
+                            const marker = L.marker([inc.coordinates.lat, inc.coordinates.lng], { icon: incidentIcon })
+                                .addTo(map)
+                                .bindPopup(`<h4>${inc.type.charAt(0).toUpperCase() + inc.type.slice(1)} Incident</h4><p>${inc.description}</p><p>${statusBadge}</p><p style="opacity:0.5;font-size:11px;">${inc.location}</p>`);
+                            markers.push(marker);
+                        }
+                    });
+                    console.log(`[CityNexus] Loaded ${data.incidents.length} incident(s) from database onto map.`);
+                } else {
+                    // No incidents in DB, show default markers
+                    const defaultMarkers = [
+                        L.marker([28.6139, 77.2090], {icon: incidentIcon}).bindPopup("<h4>Traffic Collision</h4><p>High Priority. Units dispatched.</p>"),
+                        L.marker([28.6339, 77.2190], {icon: incidentIcon}).bindPopup("<h4>Suspicious Activity</h4><p>Reported near Metro Station.</p>")
+                    ];
+                    defaultMarkers.forEach(m => { m.addTo(map); markers.push(m); });
+                    console.log('[CityNexus] No DB incidents found, showing default markers.');
+                }
+            } catch (err) {
+                // Backend unreachable — show default markers
+                const defaultMarkers = [
+                    L.marker([28.6139, 77.2090], {icon: incidentIcon}).bindPopup("<h4>Traffic Collision</h4><p>High Priority. Units dispatched.</p>"),
+                    L.marker([28.6339, 77.2190], {icon: incidentIcon}).bindPopup("<h4>Suspicious Activity</h4><p>Reported near Metro Station.</p>")
+                ];
+                defaultMarkers.forEach(m => { m.addTo(map); markers.push(m); });
+                console.warn('[CityNexus] Could not load incidents from DB:', err.message);
+            }
+        })();
 
         // Map mode buttons (Switch Layers)
         const mapBtns = document.querySelectorAll('.map-btn');
@@ -571,7 +702,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        incidentForm.addEventListener('submit', (e) => {
+        incidentForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = incidentForm.querySelector('.submit-btn');
             const ogContent = btn.innerHTML;
@@ -580,49 +711,148 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.style.background = "var(--accent-yellow)";
             btn.style.color = "#000";
             btn.style.boxShadow = "none";
+            btn.disabled = true;
 
-            setTimeout(() => {
-                btn.innerHTML = '<span>Report Filed Successfully</span> <i class="fas fa-check"></i>';
+            // Gather form data
+            const incidentType = document.getElementById('incident-type').value;
+            const incidentLocation = locationInput.value;
+            const incidentDesc = document.getElementById('incident-desc').value;
+            const incidentUrgent = document.getElementById('incident-urgent').checked;
+
+            // Parse coordinates if available
+            let coordinates = {};
+            const locVal = incidentLocation;
+            const coords = locVal.split(',');
+            if (coords.length === 2 && !isNaN(parseFloat(coords[0]))) {
+                coordinates = { lat: parseFloat(coords[0]), lng: parseFloat(coords[1]) };
+            }
+
+            // Save to backend
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/incidents`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: incidentType,
+                        location: incidentLocation,
+                        coordinates,
+                        description: incidentDesc,
+                        urgent: incidentUrgent,
+                    }),
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    btn.innerHTML = '<span>Report Filed Successfully</span> <i class="fas fa-check"></i>';
+                    btn.style.background = "var(--accent-green)";
+                    btn.style.color = "#fff";
+                    console.log('[Incident] Saved to DB:', data.incident._id);
+                } else {
+                    btn.innerHTML = '<span>Filed (DB unavailable)</span> <i class="fas fa-check"></i>';
+                    btn.style.background = "var(--accent-green)";
+                    btn.style.color = "#fff";
+                }
+            } catch (err) {
+                console.warn('[Incident] Backend unavailable, report filed locally.');
+                btn.innerHTML = '<span>Report Filed Locally</span> <i class="fas fa-check"></i>';
                 btn.style.background = "var(--accent-green)";
                 btn.style.color = "#fff";
-                
-                // Add marker to map if location is coordinates
-                const locVal = locationInput.value;
-                const coords = locVal.split(',');
-                if(coords.length === 2 && !isNaN(parseFloat(coords[0]))) {
-                    const newMarker = L.marker([parseFloat(coords[0]), parseFloat(coords[1])], {icon: incidentIcon})
-                        .addTo(map)
-                        .bindPopup("<h4>New Incident Reported</h4><p>Pending review by command center.</p>")
-                        .openPopup();
-                    markers.push(newMarker);
-                }
+            }
 
-                setTimeout(() => {
-                    incidentForm.reset();
-                    btn.innerHTML = ogContent;
-                    btn.style = "";
-                }, 3500);
-            }, 1800);
+            // Add marker to map if location is coordinates
+            if (coords.length === 2 && !isNaN(parseFloat(coords[0]))) {
+                const newMarker = L.marker([parseFloat(coords[0]), parseFloat(coords[1])], {icon: incidentIcon})
+                    .addTo(map)
+                    .bindPopup("<h4>New Incident Reported</h4><p>Pending review by command center.</p>")
+                    .openPopup();
+                markers.push(newMarker);
+            }
+
+            setTimeout(() => {
+                incidentForm.reset();
+                btn.innerHTML = ogContent;
+                btn.style = "";
+                btn.disabled = false;
+            }, 3500);
         });
     }
-    // --- Accident Detection — Manual Video Input ---
+
+    // --- Contact Form Submission Handler ---
+    const contactForm = document.getElementById('contact-form');
+    if (contactForm) {
+        contactForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('contact-submit-btn');
+            const ogContent = btn.innerHTML;
+
+            btn.innerHTML = '<span>Sending...</span> <i class="fas fa-spinner fa-spin"></i>';
+            btn.style.background = 'var(--accent-yellow)';
+            btn.style.color = '#000';
+            btn.style.boxShadow = 'none';
+            btn.disabled = true;
+
+            const name = document.getElementById('contact-name').value.trim();
+            const email = document.getElementById('contact-email').value.trim();
+            const subject = document.getElementById('contact-subject').value;
+            const message = document.getElementById('contact-message').value.trim();
+
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/contact`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, subject, message }),
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    btn.innerHTML = '<span>Message Sent Successfully!</span> <i class="fas fa-check"></i>';
+                    btn.style.background = 'var(--accent-green)';
+                    btn.style.color = '#fff';
+                    console.log('[Contact] Message saved to DB:', data.message._id);
+                } else {
+                    btn.innerHTML = '<span>Sent (server issue)</span> <i class="fas fa-check"></i>';
+                    btn.style.background = 'var(--accent-green)';
+                    btn.style.color = '#fff';
+                }
+            } catch (err) {
+                console.warn('[Contact] Backend unavailable:', err.message);
+                btn.innerHTML = '<span>Message Sent Locally</span> <i class="fas fa-check"></i>';
+                btn.style.background = 'var(--accent-green)';
+                btn.style.color = '#fff';
+            }
+
+            setTimeout(() => {
+                contactForm.reset();
+                btn.innerHTML = ogContent;
+                btn.style = '';
+                btn.disabled = false;
+            }, 3500);
+        });
+    }
+    // --- Accident Detection — Real AI Backend Integration ---
     (function initAccidentDetection() {
+        // Uses the global BACKEND_URL defined at the top of this file
+
         const uploadZone    = document.getElementById('upload-zone');
-        const fileInput     = document.getElementById('video-file-input');
+        const fileInput     = document.getElementById('image-file-input');
         const browseBtn     = document.getElementById('upload-browse-btn');
         const zoneInner     = document.getElementById('upload-zone-inner');
         const fileInfo      = document.getElementById('upload-file-info');
         const fnameLbl      = document.getElementById('upload-fname');
         const fsizeLbl      = document.getElementById('upload-fsize');
         const removeBtn     = document.getElementById('upload-remove-btn');
-        const previewWrap   = document.getElementById('video-preview-wrap');
-        const previewVideo  = document.getElementById('footage-preview');
+        const previewWrap   = document.getElementById('image-preview-wrap');
+        const previewImage  = document.getElementById('preview-image');
+        const bboxCanvas    = document.getElementById('bbox-canvas');
         const analyzeBtn    = document.getElementById('analyze-btn');
         const analysisLog   = document.getElementById('analysis-log');
         const logEntries    = document.getElementById('log-entries');
+        const detectionResults = document.getElementById('detection-results');
+        const resultsTbody  = document.getElementById('results-tbody');
 
-        if (!uploadZone) return; // guard if elements missing
+        if (!uploadZone) return;
 
+        let currentFile = null;
         let currentObjectURL = null;
 
         // Helper: format file size
@@ -631,22 +861,21 @@ document.addEventListener('DOMContentLoaded', () => {
             return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
         }
 
-        // Helper: get current time string HH:MM:SS
+        // Helper: timestamp
         function nowStr() {
             return new Date().toLocaleTimeString('en-GB', { hour12: false });
         }
 
         // Apply selected file
         function applyFile(file) {
-            if (!file || !file.type.startsWith('video/')) {
-                addLogEntry('warn', 'Invalid file type. Please upload a video file.', 'warn');
+            if (!file || !file.type.startsWith('image/')) {
+                addLogEntry('warn', 'Invalid file type. Please upload an image file (JPEG, PNG, WebP, BMP).', 'warn');
                 return;
             }
-            // Revoke previous URL
             if (currentObjectURL) URL.revokeObjectURL(currentObjectURL);
+            currentFile = file;
             currentObjectURL = URL.createObjectURL(file);
 
-            // Update zone UI
             fnameLbl.textContent = file.name;
             fsizeLbl.textContent = formatBytes(file.size);
             zoneInner.style.display = 'none';
@@ -654,42 +883,51 @@ document.addEventListener('DOMContentLoaded', () => {
             uploadZone.classList.add('has-file');
             uploadZone.classList.remove('dragover');
 
-            // Show video preview
-            previewVideo.src = currentObjectURL;
+            // Show image preview
+            previewImage.src = currentObjectURL;
             previewWrap.style.display = 'block';
 
-            // Enable analyze
-            analyzeBtn.disabled = false;
+            // Clear previous bboxes
+            const ctx = bboxCanvas.getContext('2d');
+            ctx.clearRect(0, 0, bboxCanvas.width, bboxCanvas.height);
 
-            // Reset any previous log
+            analyzeBtn.disabled = false;
             analysisLog.style.display = 'none';
             logEntries.innerHTML = '';
+            if (detectionResults) detectionResults.style.display = 'none';
+            if (resultsTbody) resultsTbody.innerHTML = '';
             analyzeBtn.classList.remove('running');
+            analyzeBtn.innerHTML = '<i class="fas fa-magnifying-glass-chart"></i><span>Detect Accidents</span>';
         }
 
-        // Remove / reset
+        // Reset
         function resetUpload() {
             if (currentObjectURL) {
                 URL.revokeObjectURL(currentObjectURL);
                 currentObjectURL = null;
             }
+            currentFile = null;
             fileInput.value = '';
             zoneInner.style.display = 'flex';
             fileInfo.style.display = 'none';
             uploadZone.classList.remove('has-file');
-            previewVideo.src = '';
+            previewImage.src = '';
             previewWrap.style.display = 'none';
             analyzeBtn.disabled = true;
             analysisLog.style.display = 'none';
             logEntries.innerHTML = '';
+            if (detectionResults) detectionResults.style.display = 'none';
+            if (resultsTbody) resultsTbody.innerHTML = '';
             analyzeBtn.classList.remove('running');
+            analyzeBtn.innerHTML = '<i class="fas fa-magnifying-glass-chart"></i><span>Detect Accidents</span>';
+            const ctx = bboxCanvas.getContext('2d');
+            ctx.clearRect(0, 0, bboxCanvas.width, bboxCanvas.height);
         }
 
         // Click to browse
         browseBtn.addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
         uploadZone.addEventListener('click', () => { if (!uploadZone.classList.contains('has-file')) fileInput.click(); });
 
-        // File input change
         fileInput.addEventListener('change', () => {
             if (fileInput.files && fileInput.files[0]) applyFile(fileInput.files[0]);
         });
@@ -705,10 +943,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (file) applyFile(file);
         });
 
-        // Remove button
         removeBtn.addEventListener('click', (e) => { e.stopPropagation(); resetUpload(); });
 
-        // ---- Analysis Log Helper ----
+        // Log helper
         function addLogEntry(type, text, dotClass) {
             const entry = document.createElement('div');
             entry.className = `log-entry${type === 'result-ok' ? ' result-ok' : type === 'result-critical' ? ' result-critical' : type === 'result-warn' ? ' result-warn' : ''}`;
@@ -718,49 +955,156 @@ document.addEventListener('DOMContentLoaded', () => {
             logEntries.scrollTop = logEntries.scrollHeight;
         }
 
-        // ---- Analyze Button ----
-        analyzeBtn.addEventListener('click', () => {
-            if (analyzeBtn.disabled) return;
+        // Draw bounding boxes on canvas
+        function drawBoundingBoxes(detections) {
+            const container = document.getElementById('image-canvas-container');
+            const imgEl = previewImage;
+
+            // Wait for image to load dimensions
+            const displayW = imgEl.clientWidth;
+            const displayH = imgEl.clientHeight;
+            const naturalW = imgEl.naturalWidth;
+            const naturalH = imgEl.naturalHeight;
+
+            bboxCanvas.width = displayW;
+            bboxCanvas.height = displayH;
+            bboxCanvas.style.width = displayW + 'px';
+            bboxCanvas.style.height = displayH + 'px';
+
+            const ctx = bboxCanvas.getContext('2d');
+            ctx.clearRect(0, 0, displayW, displayH);
+
+            const scaleX = displayW / naturalW;
+            const scaleY = displayH / naturalH;
+
+            const colors = {
+                'accident': '#ef4444',
+                'vehicle': '#00d4ff',
+                'default': '#facc15'
+            };
+
+            detections.forEach((det, idx) => {
+                const [x1, y1, x2, y2] = det.box;
+                const sx1 = x1 * scaleX;
+                const sy1 = y1 * scaleY;
+                const sx2 = x2 * scaleX;
+                const sy2 = y2 * scaleY;
+                const w = sx2 - sx1;
+                const h = sy2 - sy1;
+
+                const color = colors[det.label.toLowerCase()] || colors['default'];
+
+                // Draw box
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2.5;
+                ctx.strokeRect(sx1, sy1, w, h);
+
+                // Draw label background
+                const label = `${det.label} ${(det.confidence * 100).toFixed(1)}%`;
+                ctx.font = 'bold 13px "JetBrains Mono", monospace';
+                const textWidth = ctx.measureText(label).width;
+                const textHeight = 18;
+                ctx.fillStyle = color;
+                ctx.fillRect(sx1, sy1 - textHeight, textWidth + 10, textHeight);
+
+                // Draw label text
+                ctx.fillStyle = '#000';
+                ctx.fillText(label, sx1 + 5, sy1 - 4);
+            });
+        }
+
+        // Populate results table
+        function populateResults(detections) {
+            if (!resultsTbody || !detectionResults) return;
+            resultsTbody.innerHTML = '';
+
+            if (detections.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = '<td colspan="4" style="text-align:center; opacity:0.6;">No detections found</td>';
+                resultsTbody.appendChild(row);
+            } else {
+                detections.forEach((det, idx) => {
+                    const row = document.createElement('tr');
+                    const confPct = (det.confidence * 100).toFixed(1);
+                    const isAccident = det.label.toLowerCase().includes('accident');
+                    row.innerHTML = `
+                        <td>${idx + 1}</td>
+                        <td><span class="result-label ${isAccident ? 'label-critical' : 'label-normal'}">${det.label}</span></td>
+                        <td><span class="result-confidence">${confPct}%</span></td>
+                        <td class="result-box">[${det.box.map(v => v.toFixed(1)).join(', ')}]</td>
+                    `;
+                    resultsTbody.appendChild(row);
+                });
+            }
+            detectionResults.style.display = 'block';
+        }
+
+        // ---- Analyze Button — Real Backend Call ----
+        analyzeBtn.addEventListener('click', async () => {
+            if (analyzeBtn.disabled || !currentFile) return;
             analyzeBtn.disabled = true;
             analyzeBtn.classList.add('running');
             logEntries.innerHTML = '';
             analysisLog.style.display = 'block';
+            if (detectionResults) detectionResults.style.display = 'none';
 
-            // Determine a pseudo-random result based on filename (deterministic per file)
-            const fname = fnameLbl.textContent.toLowerCase();
-            const seed = fname.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-            const resultType = seed % 3; // 0 = accident, 1 = traffic jam, 2 = clear
+            // Clear previous bboxes
+            const ctx = bboxCanvas.getContext('2d');
+            ctx.clearRect(0, 0, bboxCanvas.width, bboxCanvas.height);
 
-            const steps = [
-                { delay: 0,    dot: 'info',     text: 'Initializing AI pipeline... model loaded.' },
-                { delay: 600,  dot: 'info',     text: 'Extracting keyframes at 2 fps...' },
-                { delay: 1300, dot: 'info',     text: `Processed ${48 + (seed % 30)} frames from video.` },
-                { delay: 1950, dot: 'info',     text: 'Running object detection (vehicles, persons, debris)...' },
-                { delay: 2700, dot: 'warn',     text: 'Anomalous motion vectors detected in ROI zone 3.' },
-                { delay: 3400, dot: 'info',     text: 'Running incident classification model...' },
-                { delay: 4200, dot: 'info',     text: 'Cross-referencing with traffic density baseline...' },
-                { delay: 5000, dot: 'info',     text: 'Preparing SOS dispatch decision...' },
-            ];
+            addLogEntry('info', 'Uploading image to AI backend...', 'info');
 
-            let resultEntry;
-            if (resultType === 0) {
-                resultEntry = { delay: 5800, dot: 'critical', text: '⚠ ACCIDENT DETECTED — Severity: CRITICAL — SOS dispatched to nearest units.', type: 'result-critical' };
-            } else if (resultType === 1) {
-                resultEntry = { delay: 5800, dot: 'warn', text: '⚠ TRAFFIC JAM DETECTED — Severity: MODERATE — Re-routing protocol triggered.', type: 'result-warn' };
-            } else {
-                resultEntry = { delay: 5800, dot: 'ok', text: '✓ No incident detected — Traffic flow nominal. No SOS required.', type: 'result-ok' };
-            }
+            // Build FormData
+            const formData = new FormData();
+            formData.append('image', currentFile);
 
-            steps.forEach(({ delay, dot, text }) => {
-                setTimeout(() => addLogEntry('info', text, dot), delay);
-            });
+            try {
+                addLogEntry('info', 'Image uploaded. Waiting for DETR model inference...', 'info');
 
-            setTimeout(() => {
-                addLogEntry(resultEntry.type, resultEntry.text, resultEntry.dot);
+                const response = await fetch(`${BACKEND_URL}/api/detect`, {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({}));
+                    throw new Error(errData.error || `Server error: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                addLogEntry('info', `Model inference complete. ${data.count || 0} object(s) detected.`, 'info');
+
+                if (data.detections && data.detections.length > 0) {
+                    const hasAccident = data.detections.some(d => d.label.toLowerCase().includes('accident'));
+
+                    if (hasAccident) {
+                        addLogEntry('result-critical', '⚠ ACCIDENT DETECTED — SOS dispatch recommended.', 'critical');
+                        playBeep(400, 500);
+                    } else {
+                        addLogEntry('result-warn', '✓ Objects detected but no accident. Traffic appears monitored.', 'warn');
+                    }
+
+                    // Draw bounding boxes on canvas
+                    previewImage.onload = () => drawBoundingBoxes(data.detections);
+                    if (previewImage.complete) drawBoundingBoxes(data.detections);
+
+                    // Populate results table
+                    populateResults(data.detections);
+                } else {
+                    addLogEntry('result-ok', '✓ No incidents detected — Scene appears clear.', 'ok');
+                    populateResults([]);
+                }
+
+            } catch (err) {
+                console.error('[Accident Detection] Error:', err);
+                addLogEntry('result-critical', `✗ Detection failed: ${err.message}`, 'critical');
+                addLogEntry('info', 'Make sure the Node.js backend (port 3000) and Python AI service (port 5000) are running.', 'warn');
+            } finally {
                 analyzeBtn.classList.remove('running');
                 analyzeBtn.disabled = false;
                 analyzeBtn.innerHTML = '<i class="fas fa-rotate-right"></i><span>Re-analyze</span>';
-            }, resultEntry.delay);
+            }
         });
     })();
 

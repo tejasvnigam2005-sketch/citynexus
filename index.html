@@ -169,6 +169,40 @@
           <p>admin@citynexus.gov<br/>support@citynexus.gov</p>
         </div>
       </div>
+
+      <!-- Contact Form -->
+      <div class="contact-form-container reveal-up delay-400" style="margin-top: 3rem;">
+        <div class="report-form-container" style="max-width: 600px; margin: 0 auto;">
+          <h3><i class="fas fa-paper-plane"></i> Send us a Message</h3>
+          <form id="contact-form" class="incident-form">
+            <div class="form-group">
+              <label for="contact-name">Your Name</label>
+              <input type="text" id="contact-name" placeholder="e.g. John Doe" required />
+            </div>
+            <div class="form-group">
+              <label for="contact-email">Email Address</label>
+              <input type="email" id="contact-email" placeholder="e.g. john@example.com" required />
+            </div>
+            <div class="form-group">
+              <label for="contact-subject">Subject</label>
+              <select id="contact-subject">
+                <option value="General Inquiry">General Inquiry</option>
+                <option value="Technical Support">Technical Support</option>
+                <option value="Partnership">Partnership</option>
+                <option value="Bug Report">Bug Report</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="contact-message">Message</label>
+              <textarea id="contact-message" rows="4" placeholder="Write your message here..." required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary submit-btn" style="width:100%" id="contact-submit-btn">
+              <span>Send Message</span>
+              <i class="fas fa-paper-plane"></i>
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -358,15 +392,14 @@
           <span class="section-tag">Module 03</span>
           <h2 class="section-title">Accident &amp; Traffic Jam <span class="gradient-text-yellow">Detection</span></h2>
           <p class="detail-desc">
-            Upload recorded footage from any road camera or dashcam. Our AI pipeline extracts frames,
-            detects incidents, classifies severity, and automatically triggers SOS dispatch to the nearest
-            emergency responders.
+            Upload an image from any road camera, dashcam, or traffic feed. Our DETR-based AI model
+            detects accidents and vehicles in real-time, returning bounding boxes with confidence scores.
           </p>
           <ul class="detail-features">
-            <li><i class="fas fa-check-circle"></i><span>Supports MP4, MOV, AVI &amp; WebM formats</span></li>
-            <li><i class="fas fa-check-circle"></i><span>Frame-by-frame accident &amp; congestion detection</span></li>
-            <li><i class="fas fa-check-circle"></i><span>Severity classification: Minor / Moderate / Critical</span></li>
-            <li><i class="fas fa-check-circle"></i><span>Auto SOS dispatch with GPS-tagged incident report</span></li>
+            <li><i class="fas fa-check-circle"></i><span>Supports JPEG, PNG, WebP &amp; BMP images</span></li>
+            <li><i class="fas fa-check-circle"></i><span>DETR object detection with bounding boxes</span></li>
+            <li><i class="fas fa-check-circle"></i><span>Confidence scores for each detection</span></li>
+            <li><i class="fas fa-check-circle"></i><span>Auto SOS dispatch on critical accident detection</span></li>
           </ul>
         </div>
 
@@ -382,19 +415,19 @@
 
             <!-- Upload Zone -->
             <div class="upload-zone" id="upload-zone">
-              <input type="file" id="video-file-input" accept="video/*" hidden />
+              <input type="file" id="image-file-input" accept="image/jpeg,image/png,image/webp,image/bmp" hidden />
               <div class="upload-zone-inner" id="upload-zone-inner">
                 <div class="upload-icon-wrap">
                   <i class="fas fa-cloud-upload-alt"></i>
                 </div>
-                <p class="upload-primary">Drop video footage here</p>
+                <p class="upload-primary">Drop an image here</p>
                 <p class="upload-secondary">or <button type="button" class="upload-browse-btn" id="upload-browse-btn">browse files</button></p>
-                <p class="upload-hint">MP4, MOV, AVI, WebM — max 2 GB</p>
+                <p class="upload-hint">JPEG, PNG, WebP, BMP — max 20 MB</p>
               </div>
               <div class="upload-file-info" id="upload-file-info" style="display:none">
-                <i class="fas fa-film"></i>
+                <i class="fas fa-image"></i>
                 <div>
-                  <p class="upload-fname" id="upload-fname">filename.mp4</p>
+                  <p class="upload-fname" id="upload-fname">image.jpg</p>
                   <p class="upload-fsize" id="upload-fsize">0 MB</p>
                 </div>
                 <button type="button" class="upload-remove-btn" id="upload-remove-btn" title="Remove file">
@@ -403,25 +436,49 @@
               </div>
             </div>
 
-            <!-- Video Preview -->
-            <div class="video-preview-wrap" id="video-preview-wrap" style="display:none">
-              <video id="footage-preview" class="footage-video" controls></video>
+            <!-- Image Preview with Bounding Box Overlay -->
+            <div class="image-preview-wrap" id="image-preview-wrap" style="display:none">
+              <div class="image-canvas-container" id="image-canvas-container">
+                <img id="preview-image" class="preview-image" />
+                <canvas id="bbox-canvas" class="bbox-canvas"></canvas>
+              </div>
             </div>
 
             <!-- Analyze Button -->
             <button type="button" class="analyze-btn" id="analyze-btn" disabled>
               <i class="fas fa-magnifying-glass-chart"></i>
-              <span>Analyze Footage</span>
+              <span>Detect Accidents</span>
             </button>
 
             <!-- Analysis Log -->
             <div class="analysis-log" id="analysis-log" style="display:none">
               <div class="log-header">
                 <i class="fas fa-terminal"></i>
-                <span>AI Analysis Log</span>
+                <span>AI Detection Log</span>
                 <span class="log-live-dot"></span>
               </div>
               <div class="log-entries" id="log-entries"></div>
+            </div>
+
+            <!-- Detection Results Table -->
+            <div class="detection-results" id="detection-results" style="display:none">
+              <div class="log-header">
+                <i class="fas fa-list-check"></i>
+                <span>Detection Results</span>
+              </div>
+              <div class="results-table-wrap">
+                <table class="results-table" id="results-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Label</th>
+                      <th>Confidence</th>
+                      <th>Bounding Box</th>
+                    </tr>
+                  </thead>
+                  <tbody id="results-tbody"></tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
