@@ -14,12 +14,13 @@
 </head>
 <body>
 
-  <!-- Global overlays -->
-  <div class="grid-overlay" aria-hidden="true"></div>
-  <div class="scanline" aria-hidden="true"></div>
 
-  <!-- Particle canvas -->
-  <canvas id="particle-canvas"></canvas>
+
+  <!-- Top Emergency Bar -->
+  <div class="top-emergency-bar" id="top-sos-btn">
+    <i class="fas fa-exclamation-triangle"></i>
+    <span>EMERGENCY SOS: CLICK TO ACTIVATE DISPATCH</span>
+  </div>
 
   <!-- ================================================
        NAVIGATION
@@ -56,11 +57,7 @@
        HERO
   ================================================ -->
   <section id="hero" class="hero">
-    <div class="hero-orbs" aria-hidden="true">
-      <div class="orb orb-1"></div>
-      <div class="orb orb-2"></div>
-      <div class="orb orb-3"></div>
-    </div>
+
     <div class="hero-content">
       <div class="hero-badge">
         <span class="badge-dot"></span>
@@ -68,7 +65,7 @@
       </div>
       <h1 class="hero-title">
         Intelligent City
-        <span class="gradient-text glitch" data-text="Command Center">Command Center</span>
+        <span class="gradient-text" data-text="Command Center">Command Center</span>
       </h1>
       <p class="hero-subtitle">
         Real-time traffic management, AI-powered surveillance, and instant emergency response
