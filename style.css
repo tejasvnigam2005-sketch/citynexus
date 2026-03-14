@@ -336,9 +336,9 @@ button { font-family: var(--font-main); cursor: pointer; }
 .form-group select option { background: #fff; color: var(--text-primary); }
 .form-group textarea { resize: none; }
 .input-with-icon { position: relative; display: flex; align-items: center; }
-.input-with-icon i { position: absolute; left: 12px; color: var(--text-muted); font-size: 0.82rem; pointer-events: none; }
-.input-with-icon input { padding-left: 34px; padding-right: 44px; }
-.btn-locate { position: absolute; right: 8px; background: none; border: none; color: var(--cyan); font-size: 0.88rem; padding: 4px 8px; cursor: pointer; transition: var(--t-fast); }
+.input-with-icon > i { display: none; }
+.input-with-icon input { padding-left: 44px; padding-right: 14px; }
+.btn-locate { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--cyan); font-size: 1.1rem; padding: 6px; cursor: pointer; transition: var(--t-fast); z-index: 2; display: flex; align-items: center; justify-content: center; }
 .btn-locate:hover { color: #ea6c0a; }
 .checkbox-group { flex-direction: row; align-items: center; gap: 10px; }
 .checkbox-group input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--cyan); }
