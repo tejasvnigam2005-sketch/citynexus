@@ -124,10 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (heroStats) statsObserver.observe(heroStats);
 
     // --- SOS functionality ---
-    const sosMainBtn = document.getElementById('sos-main-btn');
     const sosHeroBtn = document.getElementById('hero-sos-btn');
-    const sosNavBtn = document.getElementById('sos-nav-btn');
-    const topSosBtn = document.getElementById('top-sos-btn');
     const sosModal = document.getElementById('sos-modal');
     const sosCancelBtn = document.getElementById('sos-cancel-btn');
     const sosLocation = document.getElementById('sos-location');
@@ -215,9 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 300);
     }
 
-    [sosMainBtn, sosHeroBtn, sosNavBtn, topSosBtn].forEach(btn => {
-        if(btn) btn.addEventListener('click', activateSOS);
-    });
+    if (sosHeroBtn) sosHeroBtn.addEventListener('click', activateSOS);
 
     sosCancelBtn.addEventListener('click', cancelSOS);
 

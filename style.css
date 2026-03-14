@@ -61,33 +61,6 @@ a { text-decoration: none; color: inherit; }
 ul { list-style: none; }
 button { font-family: var(--font-main); cursor: pointer; }
 
-/* --------- FLOATING SOS CIRCLE BUTTON --------- */
-.sos-float-btn {
-  position: fixed;
-  top: 90px;    /* just below the navbar */
-  right: 28px;
-  z-index: 8999;
-  width: 68px;
-  height: 68px;
-  border-radius: 50%;
-  background: var(--sos-color);
-  color: #fff;
-  border: 3px solid rgba(255,255,255,0.3);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  cursor: pointer;
-  box-shadow: 0 4px 16px rgba(220,38,38,0.4);
-  transition: var(--t);
-  font-family: var(--font-main);
-  text-align: center;
-}
-.sos-float-btn i { font-size: 1.1rem; }
-.sos-float-btn span { font-size: 0.52rem; font-weight: 800; letter-spacing: 1px; line-height: 1; }
-.sos-float-btn:hover { transform: scale(1.1); box-shadow: 0 6px 24px rgba(220,38,38,0.55); }
-
 
 
 /* --------- LAYOUT --------- */

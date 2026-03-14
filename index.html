@@ -14,14 +14,6 @@
 </head>
 <body>
 
-
-
-  <!-- Floating SOS Circle Button -->
-  <button class="sos-float-btn" id="top-sos-btn" title="Emergency SOS">
-    <i class="fas fa-exclamation-triangle"></i>
-    <span>SOS</span>
-  </button>
-
   <!-- ================================================
        NAVIGATION
   ================================================ -->
@@ -32,17 +24,14 @@
         <span class="logo-text">City<span class="accent">Nexus</span></span>
       </a>
       <ul class="nav-links" id="nav-links">
+        <li><a href="#map-report" class="nav-link">Live Map</a></li>
         <li><a href="#features" class="nav-link">Features</a></li>
         <li><a href="#traffic" class="nav-link">Traffic</a></li>
         <li><a href="#crime" class="nav-link">Crime</a></li>
         <li><a href="#accident" class="nav-link">Accident Detection</a></li>
-        <li><a href="#map-report" class="nav-link">Live Map</a></li>
         <li><a href="#contact" class="nav-link">Contact</a></li>
       </ul>
       <div class="nav-actions">
-        <button id="sos-nav-btn" class="sos-btn-nav" title="Emergency SOS">
-          <i class="fas fa-exclamation-triangle"></i> SOS
-        </button>
         <button id="ai-toggle-btn" class="ai-toggle-nav" title="AI Voice Assistant">
           <i class="fas fa-microphone"></i>
         </button>
@@ -57,12 +46,11 @@
        HERO
   ================================================ -->
   <section id="hero" class="hero">
-
     <div class="hero-content">
-      <!-- Small label at top replacing the badge -->
+      <!-- Small label at top -->
       <p class="hero-platform-label">Intelligent City Command Center</p>
 
-      <!-- SOS circle as the centrepiece -->
+      <!-- SOS circle — ONLY SOS on the site -->
       <button id="hero-sos-btn" class="hero-sos-circle" title="Emergency SOS">
         <i class="fas fa-exclamation-triangle"></i>
         <span class="sos-circle-label">EMERGENCY SOS</span>
@@ -99,7 +87,93 @@
   </section>
 
   <!-- ================================================
-       FEATURES OVERVIEW
+       LIVE MAP & REPORTING  (moved up — 2nd section)
+  ================================================ -->
+  <section id="map-report" class="section map-section">
+    <div class="container">
+      <div class="section-header reveal-up">
+        <span class="section-tag">Live Intelligence</span>
+        <h2 class="section-title">City Map &amp; <span class="gradient-text">Incident Reporting</span></h2>
+        <p class="section-desc">View live city data and submit manual incident reports directly to the command center.</p>
+      </div>
+      <div class="map-report-layout">
+        <div class="map-container-wrapper reveal-left delay-200">
+          <div class="map-controls">
+            <button class="map-btn active" data-mode="normal"><i class="fas fa-map"></i> Normal</button>
+            <button class="map-btn" data-mode="satellite"><i class="fas fa-satellite"></i> Satellite</button>
+            <button class="map-btn" data-mode="3d"><i class="fas fa-layer-group"></i> 3D Terrain</button>
+          </div>
+          <div id="city-map" class="city-map"></div>
+        </div>
+        <div class="report-form-container reveal-right delay-400">
+          <h3><i class="fas fa-file-alt"></i> File an Incident Report</h3>
+          <form id="incident-form" class="incident-form">
+            <div class="form-group">
+              <label for="incident-type">Incident Type</label>
+              <select id="incident-type" required>
+                <option value="">Select Category...</option>
+                <option value="traffic">Traffic Congestion</option>
+                <option value="crime">Crime / Suspicious Activity</option>
+                <option value="infrastructure">Infrastructure Damage</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="incident-location">Location</label>
+              <div class="input-with-icon">
+                <i class="fas fa-map-marker-alt"></i>
+                <input type="text" id="incident-location" placeholder="e.g. MG Road Junction" required />
+                <button type="button" class="btn-locate" id="btn-locate" title="Use current location"><i class="fas fa-crosshairs"></i></button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="incident-desc">Description</label>
+              <textarea id="incident-desc" rows="4" placeholder="Provide details about the incident..." required></textarea>
+            </div>
+            <div class="form-group checkbox-group">
+              <input type="checkbox" id="incident-urgent" />
+              <label for="incident-urgent" class="text-danger">Mark as High Priority / Urgent</label>
+            </div>
+            <button type="submit" class="btn btn-primary submit-btn" style="width:100%">
+              <span>Submit Report</span>
+              <i class="fas fa-paper-plane"></i>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================
+       EMERGENCY NUMBERS  (moved up — 3rd section)
+  ================================================ -->
+  <section id="contact" class="section contact-section">
+    <div class="container">
+      <div class="section-header reveal-up">
+        <span class="section-tag">Emergency &amp; Contact</span>
+        <h2 class="section-title">Emergency Numbers &amp; <span class="gradient-text">CityNexus</span> Contact</h2>
+      </div>
+      <div class="contact-grid">
+        <div class="contact-card reveal-up delay-100">
+          <div class="contact-card-icon"><i class="fas fa-building"></i></div>
+          <h3>Control Center</h3>
+          <p>Smart City Command Hub<br/>Sector 22, Block A<br/>New Delhi, India</p>
+        </div>
+        <div class="contact-card reveal-up delay-200">
+          <div class="contact-card-icon"><i class="fas fa-phone-volume"></i></div>
+          <h3>Emergency Line</h3>
+          <p>112 — National Emergency<br/>100 — Police<br/>108 — Ambulance</p>
+        </div>
+        <div class="contact-card reveal-up delay-300">
+          <div class="contact-card-icon"><i class="fas fa-envelope"></i></div>
+          <h3>Administration</h3>
+          <p>admin@citynexus.gov<br/>support@citynexus.gov</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================
+       FEATURES OVERVIEW  (now 4th — after map & emergency)
   ================================================ -->
   <section id="features" class="section features-section">
     <div class="container">
@@ -350,130 +424,6 @@
               <div class="log-entries" id="log-entries"></div>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ================================================
-       SOS SECTION
-  ================================================ -->
-  <section id="sos-section" class="section sos-section">
-    <div class="sos-section-bg" aria-hidden="true"></div>
-    <div class="container">
-      <div class="sos-content reveal-zoom">
-        <div class="sos-icon-container">
-          <div class="sos-pulse"></div>
-          <div class="sos-pulse delay-1"></div>
-          <div class="sos-pulse delay-2"></div>
-          <i class="fas fa-exclamation-triangle sos-main-icon"></i>
-        </div>
-        <h2 class="section-title">Emergency <span class="gradient-text-red">SOS</span></h2>
-        <p class="sos-desc">
-          One press sends your location, camera feeds, and emergency alert to police, ambulance, and
-          fire departments simultaneously. Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> anywhere.
-        </p>
-        <div class="sos-button-wrap">
-          <div class="sos-ring r1" aria-hidden="true"></div>
-          <div class="sos-ring r2" aria-hidden="true"></div>
-          <div class="sos-ring r3" aria-hidden="true"></div>
-          <button id="sos-main-btn" class="sos-button">
-            <span class="sos-button-inner">
-              <i class="fas fa-exclamation-triangle"></i>
-              <span>ACTIVATE SOS</span>
-            </span>
-          </button>
-        </div>
-        <div class="sos-info-row">
-          <div class="sos-info-item"><i class="fas fa-location-crosshairs"></i><span>Auto-shares GPS location</span></div>
-          <div class="sos-info-item"><i class="fas fa-video"></i><span>Nearest cameras activated</span></div>
-          <div class="sos-info-item"><i class="fas fa-bolt"></i><span>Response in under 30 seconds</span></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ================================================
-       LIVE MAP & REPORTING
-  ================================================ -->
-  <section id="map-report" class="section map-section">
-    <div class="container">
-      <div class="section-header reveal-up">
-        <span class="section-tag">Live Intelligence</span>
-        <h2 class="section-title">City Map &amp; <span class="gradient-text">Manual Reporting</span></h2>
-        <p class="section-desc">View live city data and submit manual incident reports directly to the command center.</p>
-      </div>
-      <div class="map-report-layout">
-        <div class="map-container-wrapper reveal-left delay-200">
-          <div class="map-controls">
-            <button class="map-btn active" data-mode="normal"><i class="fas fa-map"></i> Normal</button>
-            <button class="map-btn" data-mode="satellite"><i class="fas fa-satellite"></i> Satellite</button>
-            <button class="map-btn" data-mode="3d"><i class="fas fa-layer-group"></i> 3D Terrain</button>
-          </div>
-          <div id="city-map" class="city-map"></div>
-        </div>
-        <div class="report-form-container reveal-right delay-400">
-          <h3><i class="fas fa-file-alt"></i> File an Incident Report</h3>
-          <form id="incident-form" class="incident-form">
-            <div class="form-group">
-              <label for="incident-type">Incident Type</label>
-              <select id="incident-type" required>
-                <option value="">Select Category...</option>
-                <option value="traffic">Traffic Congestion</option>
-                <option value="crime">Crime / Suspicious Activity</option>
-                <option value="infrastructure">Infrastructure Damage</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="incident-location">Location</label>
-              <div class="input-with-icon">
-                <i class="fas fa-map-marker-alt"></i>
-                <input type="text" id="incident-location" placeholder="e.g. MG Road Junction" required />
-                <button type="button" class="btn-locate" id="btn-locate" title="Use current location"><i class="fas fa-crosshairs"></i></button>
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="incident-desc">Description</label>
-              <textarea id="incident-desc" rows="4" placeholder="Provide details about the incident..." required></textarea>
-            </div>
-            <div class="form-group checkbox-group">
-              <input type="checkbox" id="incident-urgent" />
-              <label for="incident-urgent" class="text-danger">Mark as High Priority / Urgent</label>
-            </div>
-            <button type="submit" class="btn btn-primary submit-btn" style="width:100%">
-              <span>Submit Report</span>
-              <i class="fas fa-paper-plane"></i>
-            </button>
-          </form>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ================================================
-       CONTACT
-  ================================================ -->
-  <section id="contact" class="section contact-section">
-    <div class="container">
-      <div class="section-header reveal-up">
-        <span class="section-tag">Get In Touch</span>
-        <h2 class="section-title">Connect With <span class="gradient-text">CityNexus</span></h2>
-      </div>
-      <div class="contact-grid">
-        <div class="contact-card reveal-up delay-100">
-          <div class="contact-card-icon"><i class="fas fa-building"></i></div>
-          <h3>Control Center</h3>
-          <p>Smart City Command Hub<br/>Sector 22, Block A<br/>New Delhi, India</p>
-        </div>
-        <div class="contact-card reveal-up delay-200">
-          <div class="contact-card-icon"><i class="fas fa-phone-volume"></i></div>
-          <h3>Emergency Line</h3>
-          <p>112 — National Emergency<br/>100 — Police<br/>108 — Ambulance</p>
-        </div>
-        <div class="contact-card reveal-up delay-300">
-          <div class="contact-card-icon"><i class="fas fa-envelope"></i></div>
-          <h3>Administration</h3>
-          <p>admin@citynexus.gov<br/>support@citynexus.gov</p>
         </div>
       </div>
     </div>
