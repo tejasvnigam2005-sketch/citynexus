@@ -353,6 +353,19 @@ app.post("/api/contact", async (req, res) => {
   }
 });
 
+// Get all contact messages (latest first)
+app.get("/api/contacts", async (_req, res) => {
+  try {
+    const messages = await ContactMessage.find()
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+    res.json({ success: true, count: messages.length, messages });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch contact messages." });
+  }
+});
+
 // ─────────────────────────────────────────────────────────────────────
 //  AI CHAT — Smart responses with live data from DB
 // ─────────────────────────────────────────────────────────────────────
