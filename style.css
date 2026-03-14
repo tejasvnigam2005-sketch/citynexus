@@ -24,7 +24,7 @@
   --red-dim: rgba(220,38,38,0.10);
   --red-glow: rgba(220,38,38,0.20);
   --yellow: #d97706;
-  --sos-color: #dc2626;      /* SOS red */
+  --sos-color: #563c3c;      /* SOS red */
 
   /* Text */
   --text-white: #ffffff;
@@ -188,30 +188,33 @@ button { font-family: var(--font-main); cursor: pointer; }
 #particle-canvas { position: absolute; inset: 0; pointer-events: none; opacity: 0.5; }
 .hero-orbs { display: none; }
 
-.hero-content { position: relative; z-index: 2; max-width: 860px; padding: 0 24px; margin: 0 auto; text-align: center; }
-.hero-badge {
-  display: inline-flex; align-items: center; gap: 8px; padding: 6px 16px;
-  background: rgba(249,115,22,0.2); border: 1px solid rgba(249,115,22,0.5); border-radius: 100px;
-  font-size: 0.72rem; font-weight: 700; letter-spacing: 2px;
-  text-transform: uppercase; color: #fdba74; margin-bottom: 28px;
-}
-.badge-dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; }
-.hero-title {
-  font-size: clamp(2.4rem, 6vw, 4.5rem); font-weight: 800; line-height: 1.1;
-  color: #ffffff; letter-spacing: -1px; margin-bottom: 20px;
-}
-.hero-title .gradient-text { color: #f97316; -webkit-text-fill-color: #f97316; }
-.hero-subtitle { font-size: 1.05rem; color: rgba(255,255,255,0.7); line-height: 1.8; max-width: 600px; margin: 0 auto 36px; }
-.hero-actions { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 60px; flex-wrap: wrap; }
+.hero-content { position: relative; z-index: 2; max-width: 700px; padding: 0 24px; margin: 0 auto; text-align: center; }
 
-.btn { display: inline-flex; align-items: center; gap: 10px; padding: 13px 26px; border-radius: var(--r-md); font-size: 0.9rem; font-weight: 600; transition: var(--t); border: none; cursor: pointer; letter-spacing: 0.3px; }
-.btn-primary {
-  background: #f97316; color: #fff;
-  font-weight: 700; border: 2px solid #f97316;
+/* Small platform label at top */
+.hero-platform-label {
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 3px;
+  text-transform: uppercase; color: rgba(255,255,255,0.55);
+  margin-bottom: 36px;
 }
-.btn-primary:hover { background: #ea6c0a; border-color: #ea6c0a; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(249,115,22,0.4); }
-.btn-sos-hero { background: transparent; color: #fff; border: 2px solid rgba(255,255,255,0.5); }
-.btn-sos-hero:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.8); transform: translateY(-2px); }
+
+/* Hero-centred SOS circle */
+.hero-sos-circle {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 200px; height: 200px; border-radius: 50%;
+  background: var(--sos-color);
+  border: 4px solid rgba(255,255,255,0.2);
+  color: #fff; cursor: pointer;
+  margin: 0 auto 36px;
+  box-shadow: 0 8px 40px rgba(220,38,38,0.5), 0 0 0 12px rgba(220,38,38,0.12);
+  transition: var(--t);
+  gap: 6px;
+}
+.hero-sos-circle i { font-size: 2.8rem; margin-bottom: 4px; }
+.hero-sos-circle .sos-circle-label { font-size: 0.75rem; font-weight: 900; letter-spacing: 2.5px; line-height: 1; }
+.hero-sos-circle .sos-circle-sub { font-size: 0.58rem; letter-spacing: 1px; opacity: 0.7; font-weight: 500; }
+.hero-sos-circle:hover { transform: scale(1.05); box-shadow: 0 12px 52px rgba(220,38,38,0.65), 0 0 0 18px rgba(220,38,38,0.1); }
+
+.hero-subtitle { font-size: 0.98rem; color: rgba(255,255,255,0.7); line-height: 1.8; max-width: 540px; margin: 0 auto 40px; }
 
 .hero-stats {
   display: grid; grid-template-columns: repeat(4,1fr); gap: 1px;
