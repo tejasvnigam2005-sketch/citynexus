@@ -16,6 +16,7 @@ const crypto = require("crypto");
 const FormData = require("form-data");
 const mongoose = require("mongoose");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const nodemailer = require("nodemailer");
 
 // ── Models ──────────────────────────────────────────────────────────
 const Incident = require("./models/Incident");
@@ -220,6 +221,143 @@ app.post("/api/auth/signin", async (req, res) => {
   } catch (err) {
     console.error("[auth] Signin error:", err.message);
     res.status(500).json({ error: "Sign in failed. Please try again." });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────
+//  RESET PASSWORD — Forgot / Verify / Reset
+// ─────────────────────────────────────────────────────────────────────
+
+// Email transporter (configure GMAIL_USER & GMAIL_APP_PASSWORD in .env)
+let mailTransporter = null;
+if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+  mailTransporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+  console.log(`[CityNexus] ✓ Email configured: ${process.env.GMAIL_USER}`);
+}
+
+// Step 1: Send reset code to email
+app.post("/api/auth/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "Email is required." });
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({ error: "No account found with this email." });
+    }
+
+    // Generate 6-digit code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    user.resetCode = code;
+    user.resetCodeExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+    await user.save();
+
+    // Try to send email
+    let emailSent = false;
+    if (mailTransporter) {
+      try {
+        await mailTransporter.sendMail({
+          from: `"CityNexus" <${process.env.GMAIL_USER}>`,
+          to: user.email,
+          subject: "CityNexus — Password Reset Code",
+          html: `
+            <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#1c3f6e;border-radius:16px;">
+              <h2 style="color:#fff;text-align:center;margin-bottom:8px;">🏙️ CityNexus</h2>
+              <p style="color:rgba(255,255,255,0.6);text-align:center;font-size:14px;margin-bottom:28px;">Password Reset Code</p>
+              <div style="background:rgba(255,255,255,0.1);border-radius:12px;padding:24px;text-align:center;">
+                <p style="color:rgba(255,255,255,0.7);font-size:14px;margin-bottom:12px;">Your verification code is:</p>
+                <div style="font-size:36px;font-weight:800;letter-spacing:8px;color:#e85d04;padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">${code}</div>
+                <p style="color:rgba(255,255,255,0.5);font-size:12px;margin-top:16px;">This code expires in 10 minutes.</p>
+              </div>
+              <p style="color:rgba(255,255,255,0.4);font-size:12px;text-align:center;margin-top:20px;">If you didn't request this, ignore this email.</p>
+            </div>
+          `,
+        });
+        emailSent = true;
+        console.log(`[auth] ✓ Reset code sent to ${user.email}`);
+      } catch (mailErr) {
+        console.error("[auth] Email send failed:", mailErr.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: emailSent
+        ? `Verification code sent to ${user.email}`
+        : `Verification code generated. Check console (email not configured).`,
+      emailSent,
+      // Only expose code if email isn't configured (dev mode)
+      ...(emailSent ? {} : { code }),
+    });
+  } catch (err) {
+    console.error("[auth] Forgot password error:", err.message);
+    res.status(500).json({ error: "Something went wrong. Try again." });
+  }
+});
+
+// Step 2: Verify the code
+app.post("/api/auth/verify-code", async (req, res) => {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) return res.status(400).json({ error: "Email and code are required." });
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) return res.status(404).json({ error: "No account found." });
+
+    if (!user.resetCode || !user.resetCodeExpires) {
+      return res.status(400).json({ error: "No reset code requested. Start over." });
+    }
+    if (new Date() > user.resetCodeExpires) {
+      return res.status(400).json({ error: "Code expired. Request a new one." });
+    }
+    if (user.resetCode !== code.trim()) {
+      return res.status(400).json({ error: "Invalid code. Check and try again." });
+    }
+
+    res.json({ success: true, message: "Code verified. You can now reset your password." });
+  } catch (err) {
+    console.error("[auth] Verify code error:", err.message);
+    res.status(500).json({ error: "Verification failed." });
+  }
+});
+
+// Step 3: Reset the password
+app.post("/api/auth/reset-password", async (req, res) => {
+  try {
+    const { email, code, newPassword } = req.body;
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({ error: "All fields are required." });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters." });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) return res.status(404).json({ error: "No account found." });
+
+    if (!user.resetCode || user.resetCode !== code.trim()) {
+      return res.status(400).json({ error: "Invalid or expired code." });
+    }
+    if (new Date() > user.resetCodeExpires) {
+      return res.status(400).json({ error: "Code expired. Request a new one." });
+    }
+
+    user.password = hashPassword(newPassword);
+    user.resetCode = null;
+    user.resetCodeExpires = null;
+    await user.save();
+
+    console.log(`[auth] ✓ Password reset: ${user.email}`);
+    res.json({ success: true, message: "Password reset successfully. You can now sign in." });
+  } catch (err) {
+    console.error("[auth] Reset password error:", err.message);
+    res.status(500).json({ error: "Password reset failed." });
   }
 });
 

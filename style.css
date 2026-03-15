@@ -360,6 +360,93 @@
   color: rgba(255,255,255,0.7);
 }
 
+/* Forgot password link */
+.forgot-link {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.45);
+  font-family: var(--font-main);
+  font-size: 0.78rem;
+  cursor: pointer;
+  text-align: center;
+  padding: 8px 0 0;
+  transition: color 0.2s;
+  width: 100%;
+}
+.forgot-link:hover { color: var(--cyan); }
+
+/* Reset flow */
+.reset-flow { flex-direction: column; gap: 16px; }
+.reset-back {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.5);
+  font-family: var(--font-main);
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  transition: color 0.2s;
+  margin-bottom: 4px;
+}
+.reset-back:hover { color: #fff; }
+
+.reset-step { display: none; }
+.reset-step.active { display: block; }
+.reset-instruction {
+  color: rgba(255,255,255,0.55);
+  font-size: 0.82rem;
+  text-align: center;
+  margin-bottom: 16px;
+  line-height: 1.4;
+}
+
+/* 6-digit code inputs */
+.code-inputs {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+.code-digit {
+  width: 48px;
+  height: 56px;
+  text-align: center;
+  font-size: 1.4rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  background: rgba(255,255,255,0.06);
+  border: 2px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  color: #fff;
+  outline: none;
+  transition: all 0.2s ease;
+}
+.code-digit:focus {
+  border-color: var(--cyan);
+  background: rgba(232, 93, 4, 0.08);
+  box-shadow: 0 0 0 3px rgba(232, 93, 4, 0.12);
+}
+.code-digit.filled {
+  border-color: rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.1);
+}
+
+/* Auth success banner */
+.auth-success {
+  background: rgba(22, 163, 74, 0.15);
+  border: 1px solid rgba(22, 163, 74, 0.4);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  color: #86efac;
+  font-size: 0.82rem;
+  font-weight: 500;
+  text-align: center;
+  animation: loginCardIn 0.3s ease;
+}
+
 /* --------- RESET --------- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; scroll-padding-top: 80px; }

@@ -145,6 +145,183 @@ const BACKEND_URL = window.location.hostname === 'localhost' || window.location.
             btn.disabled = false;
         }
     });
+
+    // ─── RESET PASSWORD FLOW ──────────────────────────────
+    const forgotLink = document.getElementById('forgot-password-link');
+    const resetFlow = document.getElementById('reset-flow');
+    const resetBack = document.getElementById('reset-back');
+    const authTabs = overlay.querySelector('.auth-tabs');
+    let resetEmail = '';
+    let resetCode = '';
+
+    // Show reset flow
+    forgotLink.addEventListener('click', () => {
+        signinForm.classList.remove('active');
+        signupForm.classList.remove('active');
+        resetFlow.classList.add('active');
+        authTabs.style.display = 'none';
+        errorEl.style.display = 'none';
+        // Reset all steps
+        document.querySelectorAll('.reset-step').forEach(s => s.classList.remove('active'));
+        document.getElementById('reset-step-1').classList.add('active');
+    });
+
+    // Back to sign in
+    resetBack.addEventListener('click', () => {
+        resetFlow.classList.remove('active');
+        signinForm.classList.add('active');
+        authTabs.style.display = 'flex';
+        tabs.forEach(t => t.classList.remove('active'));
+        tabs[1].classList.add('active'); // select Sign In tab
+        errorEl.style.display = 'none';
+    });
+
+    function showStep(n) {
+        document.querySelectorAll('.reset-step').forEach(s => s.classList.remove('active'));
+        document.getElementById(`reset-step-${n}`).classList.add('active');
+    }
+
+    // Step 1: Send code
+    document.getElementById('reset-send-code').addEventListener('click', async () => {
+        resetEmail = document.getElementById('reset-email').value.trim();
+        if (!resetEmail.includes('@')) return showError('Enter a valid email.');
+
+        const btn = document.getElementById('reset-send-code');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending…';
+        btn.disabled = true;
+
+        try {
+            const res = await fetch(`${BACKEND_URL}/api/auth/forgot-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: resetEmail }),
+            });
+            const data = await res.json();
+
+            if (!res.ok) { showError(data.error); return; }
+
+            // If code in response (dev mode), pre-fill it
+            if (data.code) {
+                const digits = data.code.split('');
+                document.querySelectorAll('.code-digit').forEach((inp, i) => {
+                    inp.value = digits[i] || '';
+                    if (digits[i]) inp.classList.add('filled');
+                });
+                resetCode = data.code;
+            }
+
+            errorEl.style.display = 'none';
+            showStep(2);
+            document.querySelector('.code-digit').focus();
+        } catch {
+            showError('Network error.');
+        } finally {
+            btn.innerHTML = '<span>Send Code</span><i class="fas fa-paper-plane"></i>';
+            btn.disabled = false;
+        }
+    });
+
+    // Code digit inputs — auto-advance & paste support
+    const codeDigits = document.querySelectorAll('.code-digit');
+    codeDigits.forEach((input, i) => {
+        input.addEventListener('input', () => {
+            const val = input.value.replace(/\D/g, '');
+            input.value = val.slice(0, 1);
+            if (val && i < 5) codeDigits[i + 1].focus();
+            input.classList.toggle('filled', !!val);
+        });
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace' && !input.value && i > 0) {
+                codeDigits[i - 1].focus();
+                codeDigits[i - 1].value = '';
+                codeDigits[i - 1].classList.remove('filled');
+            }
+        });
+        input.addEventListener('paste', (e) => {
+            e.preventDefault();
+            const pasted = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 6);
+            pasted.split('').forEach((d, j) => {
+                if (codeDigits[j]) {
+                    codeDigits[j].value = d;
+                    codeDigits[j].classList.add('filled');
+                }
+            });
+            if (pasted.length >= 6) codeDigits[5].focus();
+        });
+    });
+
+    // Step 2: Verify code
+    document.getElementById('reset-verify-code').addEventListener('click', async () => {
+        resetCode = Array.from(codeDigits).map(i => i.value).join('');
+        if (resetCode.length !== 6) return showError('Enter all 6 digits.');
+
+        const btn = document.getElementById('reset-verify-code');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying…';
+        btn.disabled = true;
+
+        try {
+            const res = await fetch(`${BACKEND_URL}/api/auth/verify-code`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: resetEmail, code: resetCode }),
+            });
+            const data = await res.json();
+
+            if (!res.ok) { showError(data.error); return; }
+
+            errorEl.style.display = 'none';
+            showStep(3);
+        } catch {
+            showError('Network error.');
+        } finally {
+            btn.innerHTML = '<span>Verify Code</span><i class="fas fa-check"></i>';
+            btn.disabled = false;
+        }
+    });
+
+    // Step 3: Reset password
+    document.getElementById('reset-save-pw').addEventListener('click', async () => {
+        const pw = document.getElementById('reset-new-pw').value;
+        const confirmPw = document.getElementById('reset-confirm-pw').value;
+
+        if (pw.length < 6) return showError('Password must be at least 6 characters.');
+        if (pw !== confirmPw) return showError('Passwords don\'t match.');
+
+        const btn = document.getElementById('reset-save-pw');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Resetting…';
+        btn.disabled = true;
+
+        try {
+            const res = await fetch(`${BACKEND_URL}/api/auth/reset-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: resetEmail, code: resetCode, newPassword: pw }),
+            });
+            const data = await res.json();
+
+            if (!res.ok) { showError(data.error); return; }
+
+            // Success — switch to sign in
+            errorEl.className = 'auth-success';
+            errorEl.textContent = '✓ Password reset! Sign in with your new password.';
+            errorEl.style.display = 'block';
+
+            setTimeout(() => {
+                resetFlow.classList.remove('active');
+                signinForm.classList.add('active');
+                authTabs.style.display = 'flex';
+                tabs.forEach(t => t.classList.remove('active'));
+                tabs[1].classList.add('active');
+                errorEl.className = 'auth-error';
+                errorEl.style.display = 'none';
+            }, 2000);
+        } catch {
+            showError('Network error.');
+        } finally {
+            btn.innerHTML = '<span>Reset Password</span><i class="fas fa-shield-check"></i>';
+            btn.disabled = false;
+        }
+    });
 })();
 
 document.addEventListener('DOMContentLoaded', () => {
