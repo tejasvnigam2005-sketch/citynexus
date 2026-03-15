@@ -33,7 +33,7 @@ let geminiVisionModel = null;
 if (GEMINI_API_KEY) {
   const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
   geminiModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
-  geminiVisionModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  geminiVisionModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
   console.log("[CityNexus] ✓ Gemini AI initialized");
 } else {
   console.warn("[CityNexus] ⚠ GEMINI_API_KEY not set — AI features disabled");
