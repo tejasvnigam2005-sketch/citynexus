@@ -12,6 +12,7 @@ const multer = require("multer");
 const axios = require("axios");
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
 const FormData = require("form-data");
 const mongoose = require("mongoose");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
@@ -21,6 +22,7 @@ const Incident = require("./models/Incident");
 const SOSAlert = require("./models/SOSAlert");
 const Detection = require("./models/Detection");
 const ContactMessage = require("./models/ContactMessage");
+const User = require("./models/User");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -144,6 +146,82 @@ function cleanupFile(filePath) {
 // ══════════════════════════════════════════════════════════════════════
 //  API ROUTES
 // ══════════════════════════════════════════════════════════════════════
+
+// ── Helper: hash password ───────────────────────────────────────────
+function hashPassword(pw) {
+  return crypto.createHash("sha256").update(pw).digest("hex");
+}
+
+// ─────────────────────────────────────────────────────────────────────
+//  AUTH — Sign Up & Sign In
+// ─────────────────────────────────────────────────────────────────────
+
+app.post("/api/auth/signup", async (req, res) => {
+  try {
+    const { name, email, phone, password } = req.body;
+
+    if (!name || !email || !phone || !password) {
+      return res.status(400).json({ error: "All fields are required." });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters." });
+    }
+
+    // Check if email already exists
+    const existing = await User.findOne({ email: email.toLowerCase() });
+    if (existing) {
+      return res.status(409).json({ error: "An account with this email already exists. Please sign in." });
+    }
+
+    const user = await User.create({
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      phone: phone.trim(),
+      password: hashPassword(password),
+    });
+
+    console.log(`[auth] ✓ New user: ${user.email}`);
+    res.status(201).json({
+      success: true,
+      user: { id: user._id, name: user.name, email: user.email, phone: user.phone },
+    });
+  } catch (err) {
+    console.error("[auth] Signup error:", err.message);
+    res.status(500).json({ error: "Signup failed. Please try again." });
+  }
+});
+
+app.post("/api/auth/signin", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and password are required." });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(401).json({ error: "No account found with this email." });
+    }
+
+    if (user.password !== hashPassword(password)) {
+      return res.status(401).json({ error: "Incorrect password. Try again." });
+    }
+
+    // Update last login
+    user.lastLogin = new Date();
+    await user.save();
+
+    console.log(`[auth] ✓ Login: ${user.email}`);
+    res.json({
+      success: true,
+      user: { id: user._id, name: user.name, email: user.email, phone: user.phone },
+    });
+  } catch (err) {
+    console.error("[auth] Signin error:", err.message);
+    res.status(500).json({ error: "Sign in failed. Please try again." });
+  }
+});
 
 // ── Health check ────────────────────────────────────────────────────
 app.get("/api/health", async (_req, res) => {

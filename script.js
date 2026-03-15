@@ -9,60 +9,141 @@ const BACKEND_URL = window.location.hostname === 'localhost' || window.location.
     : 'https://backend-murex-tau-22.vercel.app';
 
 /* ─────────────────────────────────────────────────
-   ONE-TIME LOGIN GATE
+   AUTH GATE — Sign Up / Sign In
    ───────────────────────────────────────────────── */
-(function loginGate() {
+(function authGate() {
     const overlay = document.getElementById('login-overlay');
     if (!overlay) return;
 
-    // Check if user already signed in
+    // Already logged in? Skip overlay
     const savedUser = localStorage.getItem('citynexus_user');
     if (savedUser) {
         overlay.classList.add('removed');
         return;
     }
 
-    // Show overlay and lock scroll
+    // Lock scroll
     document.body.style.overflow = 'hidden';
 
-    const form = document.getElementById('login-form');
     const card = overlay.querySelector('.login-card');
+    const tabs = overlay.querySelectorAll('.auth-tab');
+    const signupForm = document.getElementById('signup-form');
+    const signinForm = document.getElementById('signin-form');
+    const errorEl = document.getElementById('auth-error');
 
-    form.addEventListener('submit', (e) => {
-        e.preventDefault();
+    // Tab switching
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            errorEl.style.display = 'none';
 
-        const name = document.getElementById('login-name').value.trim();
-        const phone = document.getElementById('login-phone').value.trim();
-        const email = document.getElementById('login-email').value.trim();
+            if (tab.dataset.tab === 'signup') {
+                signupForm.classList.add('active');
+                signinForm.classList.remove('active');
+            } else {
+                signinForm.classList.add('active');
+                signupForm.classList.remove('active');
+            }
+        });
+    });
 
-        // Validate
-        if (!name || name.length < 2) {
-            card.classList.add('shake');
-            setTimeout(() => card.classList.remove('shake'), 500);
-            return;
-        }
-        if (!/^[0-9]{10,15}$/.test(phone)) {
-            card.classList.add('shake');
-            setTimeout(() => card.classList.remove('shake'), 500);
-            return;
-        }
-        if (!email.includes('@')) {
-            card.classList.add('shake');
-            setTimeout(() => card.classList.remove('shake'), 500);
-            return;
-        }
+    // Password toggle
+    overlay.querySelectorAll('.password-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const input = btn.previousElementSibling;
+            const isHidden = input.type === 'password';
+            input.type = isHidden ? 'text' : 'password';
+            btn.innerHTML = isHidden ? '<i class="fas fa-eye-slash"></i>' : '<i class="fas fa-eye"></i>';
+        });
+    });
 
-        // Save to localStorage
-        const userData = { name, phone, email, signedInAt: new Date().toISOString() };
+    function showError(msg) {
+        errorEl.textContent = msg;
+        errorEl.style.display = 'block';
+        card.classList.add('shake');
+        setTimeout(() => card.classList.remove('shake'), 500);
+    }
+
+    function authSuccess(userData) {
         localStorage.setItem('citynexus_user', JSON.stringify(userData));
-
-        // Animate out
         overlay.classList.add('hidden');
         document.body.style.overflow = '';
+        setTimeout(() => overlay.classList.add('removed'), 700);
+    }
 
-        setTimeout(() => {
-            overlay.classList.add('removed');
-        }, 700);
+    // SIGN UP
+    signupForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('signup-name').value.trim();
+        const phone = document.getElementById('signup-phone').value.trim();
+        const email = document.getElementById('signup-email').value.trim();
+        const password = document.getElementById('signup-password').value;
+
+        if (!name || name.length < 2) return showError('Name must be at least 2 characters.');
+        if (!/^[0-9]{10,15}$/.test(phone)) return showError('Enter a valid phone number (10-15 digits).');
+        if (!email.includes('@')) return showError('Enter a valid email address.');
+        if (password.length < 6) return showError('Password must be at least 6 characters.');
+
+        const btn = signupForm.querySelector('.login-submit');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating account…';
+        btn.disabled = true;
+
+        try {
+            const res = await fetch(`${BACKEND_URL}/api/auth/signup`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email, phone, password }),
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                showError(data.error || 'Signup failed.');
+                return;
+            }
+
+            authSuccess({ ...data.user, signedInAt: new Date().toISOString() });
+        } catch (err) {
+            showError('Network error. Check your connection.');
+        } finally {
+            btn.innerHTML = '<span>Create Account</span><i class="fas fa-arrow-right"></i>';
+            btn.disabled = false;
+        }
+    });
+
+    // SIGN IN
+    signinForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('signin-email').value.trim();
+        const password = document.getElementById('signin-password').value;
+
+        if (!email.includes('@')) return showError('Enter a valid email address.');
+        if (!password) return showError('Password is required.');
+
+        const btn = signinForm.querySelector('.login-submit');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in…';
+        btn.disabled = true;
+
+        try {
+            const res = await fetch(`${BACKEND_URL}/api/auth/signin`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password }),
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                showError(data.error || 'Sign in failed.');
+                return;
+            }
+
+            authSuccess({ ...data.user, signedInAt: new Date().toISOString() });
+        } catch (err) {
+            showError('Network error. Check your connection.');
+        } finally {
+            btn.innerHTML = '<span>Sign In</span><i class="fas fa-arrow-right"></i>';
+            btn.disabled = false;
+        }
     });
 })();
 

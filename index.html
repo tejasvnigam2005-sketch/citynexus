@@ -15,7 +15,7 @@
 <body>
 
   <!-- ================================================
-       LOGIN / SIGN-IN OVERLAY (one-time)
+       AUTH OVERLAY — Sign Up / Sign In
   ================================================ -->
   <div id="login-overlay" class="login-overlay">
     <div class="login-particles">
@@ -33,25 +33,63 @@
         </div>
         <p class="login-tagline">Smart City Command Platform</p>
       </div>
-      <form id="login-form" class="login-form" autocomplete="off">
+
+      <!-- Tab switcher -->
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-tab="signup">Sign Up</button>
+        <button class="auth-tab" data-tab="signin">Sign In</button>
+      </div>
+
+      <!-- Error message -->
+      <div id="auth-error" class="auth-error" style="display:none;"></div>
+
+      <!-- SIGN UP form -->
+      <form id="signup-form" class="login-form auth-form active" autocomplete="off">
         <div class="login-field">
-          <label for="login-name"><i class="fas fa-user"></i> Full Name</label>
-          <input type="text" id="login-name" placeholder="Enter your full name" required minlength="2" />
+          <label for="signup-name"><i class="fas fa-user"></i> Full Name</label>
+          <input type="text" id="signup-name" placeholder="Enter your full name" required minlength="2" />
         </div>
         <div class="login-field">
-          <label for="login-phone"><i class="fas fa-phone"></i> Phone Number</label>
-          <input type="tel" id="login-phone" placeholder="Enter your phone number" required pattern="[0-9]{10,15}" title="Enter a valid phone number (10-15 digits)" />
+          <label for="signup-phone"><i class="fas fa-phone"></i> Phone Number</label>
+          <input type="tel" id="signup-phone" placeholder="Enter your phone number" required pattern="[0-9]{10,15}" title="10-15 digits" />
         </div>
         <div class="login-field">
-          <label for="login-email"><i class="fas fa-envelope"></i> Gmail</label>
-          <input type="email" id="login-email" placeholder="yourname@gmail.com" required />
+          <label for="signup-email"><i class="fas fa-envelope"></i> Gmail</label>
+          <input type="email" id="signup-email" placeholder="yourname@gmail.com" required />
         </div>
-        <button type="submit" id="login-submit" class="login-submit">
-          <span>Enter CityNexus</span>
+        <div class="login-field">
+          <label for="signup-password"><i class="fas fa-lock"></i> Password</label>
+          <div class="password-wrapper">
+            <input type="password" id="signup-password" placeholder="Min 6 characters" required minlength="6" />
+            <button type="button" class="password-toggle" tabindex="-1"><i class="fas fa-eye"></i></button>
+          </div>
+        </div>
+        <button type="submit" class="login-submit">
+          <span>Create Account</span>
           <i class="fas fa-arrow-right"></i>
         </button>
       </form>
-      <p class="login-footer">Your data is stored locally and never shared</p>
+
+      <!-- SIGN IN form -->
+      <form id="signin-form" class="login-form auth-form" autocomplete="off">
+        <div class="login-field">
+          <label for="signin-email"><i class="fas fa-envelope"></i> Gmail</label>
+          <input type="email" id="signin-email" placeholder="yourname@gmail.com" required />
+        </div>
+        <div class="login-field">
+          <label for="signin-password"><i class="fas fa-lock"></i> Password</label>
+          <div class="password-wrapper">
+            <input type="password" id="signin-password" placeholder="Enter your password" required />
+            <button type="button" class="password-toggle" tabindex="-1"><i class="fas fa-eye"></i></button>
+          </div>
+        </div>
+        <button type="submit" class="login-submit">
+          <span>Sign In</span>
+          <i class="fas fa-arrow-right"></i>
+        </button>
+      </form>
+
+      <p class="login-footer">Your credentials are securely stored</p>
     </div>
   </div>
 
