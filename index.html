@@ -76,12 +76,62 @@
         <button id="ai-toggle-btn" class="ai-toggle-nav" title="AI Voice Assistant">
           <i class="fas fa-microphone"></i>
         </button>
+        <button id="profile-toggle-btn" class="profile-toggle-nav" title="My Profile">
+          <span id="profile-avatar-letter">U</span>
+        </button>
         <button class="mobile-toggle" id="mobile-toggle" aria-label="Toggle menu">
           <span></span><span></span><span></span>
         </button>
       </div>
     </div>
   </nav>
+
+  <!-- ================================================
+       PROFILE PANEL (slide-out right)
+  ================================================ -->
+  <div id="profile-backdrop" class="profile-backdrop"></div>
+  <aside id="profile-panel" class="profile-panel">
+    <div class="profile-panel-header">
+      <div class="profile-avatar-large" id="profile-avatar-large">U</div>
+      <h3 id="profile-user-name">User</h3>
+      <p id="profile-user-email" class="profile-email">—</p>
+      <p id="profile-user-phone" class="profile-phone"><i class="fas fa-phone"></i> <span>—</span></p>
+      <button id="profile-close" class="profile-close"><i class="fas fa-times"></i></button>
+    </div>
+
+    <div class="profile-stats-row">
+      <div class="profile-stat">
+        <span class="profile-stat-num" id="pstat-reports">0</span>
+        <span class="profile-stat-label">Reports</span>
+      </div>
+      <div class="profile-stat">
+        <span class="profile-stat-num" id="pstat-sos">0</span>
+        <span class="profile-stat-label">SOS Sent</span>
+      </div>
+      <div class="profile-stat">
+        <span class="profile-stat-num" id="pstat-messages">0</span>
+        <span class="profile-stat-label">Messages</span>
+      </div>
+    </div>
+
+    <div class="profile-section">
+      <h4><i class="fas fa-clock-rotate-left"></i> Activity & Complaints</h4>
+      <div id="profile-activity-list" class="profile-activity-list">
+        <p class="profile-empty">No activity yet</p>
+      </div>
+    </div>
+
+    <div class="profile-section">
+      <h4><i class="fas fa-chart-pie"></i> Complaint Breakdown</h4>
+      <div id="profile-breakdown" class="profile-breakdown">
+        <p class="profile-empty">No data</p>
+      </div>
+    </div>
+
+    <button id="profile-signout" class="profile-signout">
+      <i class="fas fa-right-from-bracket"></i> Sign Out
+    </button>
+  </aside>
 
   <!-- ================================================
        HERO

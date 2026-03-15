@@ -1248,4 +1248,180 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     })();
 
+    // ─────────────────────────────────────────────────
+    //  PROFILE PANEL
+    // ─────────────────────────────────────────────────
+    (function initProfile() {
+        const toggleBtn = document.getElementById('profile-toggle-btn');
+        const panel = document.getElementById('profile-panel');
+        const backdrop = document.getElementById('profile-backdrop');
+        const closeBtn = document.getElementById('profile-close');
+        const signoutBtn = document.getElementById('profile-signout');
+        if (!toggleBtn || !panel) return;
+
+        // Populate user info from localStorage
+        const user = JSON.parse(localStorage.getItem('citynexus_user') || '{}');
+        const initial = user.name ? user.name.charAt(0).toUpperCase() : 'U';
+
+        document.getElementById('profile-avatar-letter').textContent = initial;
+        document.getElementById('profile-avatar-large').textContent = initial;
+        document.getElementById('profile-user-name').textContent = user.name || 'User';
+        document.getElementById('profile-user-email').textContent = user.email || '—';
+        document.getElementById('profile-user-phone').querySelector('span').textContent = user.phone || '—';
+
+        // Toggle panel
+        function openPanel() {
+            panel.classList.add('open');
+            backdrop.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            loadProfileData();
+        }
+        function closePanel() {
+            panel.classList.remove('open');
+            backdrop.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        toggleBtn.addEventListener('click', openPanel);
+        closeBtn.addEventListener('click', closePanel);
+        backdrop.addEventListener('click', closePanel);
+
+        // Sign out
+        signoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('citynexus_user');
+            closePanel();
+            location.reload();
+        });
+
+        // Fetch & populate data
+        async function loadProfileData() {
+            const activity = [];
+            let trafficCount = 0, crimeCount = 0, sosCount = 0, msgCount = 0;
+
+            try {
+                // Fetch incidents
+                const incRes = await fetch(`${BACKEND_URL}/api/incidents`).then(r => r.json());
+                const incidents = Array.isArray(incRes) ? incRes : (incRes.incidents || []);
+                incidents.forEach(inc => {
+                    const type = (inc.type || 'traffic').toLowerCase();
+                    if (type === 'traffic') trafficCount++;
+                    else crimeCount++;
+                    activity.push({
+                        type,
+                        title: `${type === 'crime' ? '🔴 Crime' : '🔵 Traffic'} Report`,
+                        desc: inc.description || inc.location || '—',
+                        status: inc.status || 'pending',
+                        time: inc.createdAt,
+                    });
+                });
+            } catch {}
+
+            try {
+                // Fetch SOS alerts
+                const sosRes = await fetch(`${BACKEND_URL}/api/sos`).then(r => r.json());
+                const alerts = Array.isArray(sosRes) ? sosRes : (sosRes.alerts || []);
+                sosCount = alerts.length;
+                alerts.forEach(a => {
+                    activity.push({
+                        type: 'sos',
+                        title: '🆘 SOS Alert',
+                        desc: a.message || `Lat: ${a.latitude?.toFixed(4)}, Lng: ${a.longitude?.toFixed(4)}`,
+                        status: a.status || 'active',
+                        time: a.createdAt,
+                    });
+                });
+            } catch {}
+
+            try {
+                // Fetch contacts
+                const conRes = await fetch(`${BACKEND_URL}/api/contacts`).then(r => r.json());
+                const contacts = Array.isArray(conRes) ? conRes : (conRes.contacts || []);
+                msgCount = contacts.length;
+                contacts.forEach(c => {
+                    activity.push({
+                        type: 'message',
+                        title: `✉️ Message: ${c.subject || 'General'}`,
+                        desc: c.message || '—',
+                        status: 'sent',
+                        time: c.createdAt,
+                    });
+                });
+            } catch {}
+
+            try {
+                // Fetch detections
+                const detRes = await fetch(`${BACKEND_URL}/api/detections`).then(r => r.json());
+                const detections = Array.isArray(detRes) ? detRes : (detRes.detections || []);
+                detections.forEach(d => {
+                    activity.push({
+                        type: 'detection',
+                        title: `🔍 AI Detection${d.hasAccident ? ' — ACCIDENT' : ''}`,
+                        desc: `${d.count || 0} objects in ${d.filename || 'image'}`,
+                        status: d.hasAccident ? 'critical' : 'clear',
+                        time: d.createdAt,
+                    });
+                });
+            } catch {}
+
+            // Update stat numbers
+            document.getElementById('pstat-reports').textContent = trafficCount + crimeCount;
+            document.getElementById('pstat-sos').textContent = sosCount;
+            document.getElementById('pstat-messages').textContent = msgCount;
+
+            // Sort activity by time (newest first)
+            activity.sort((a, b) => new Date(b.time || 0) - new Date(a.time || 0));
+
+            // Render activity list
+            const listEl = document.getElementById('profile-activity-list');
+            if (activity.length === 0) {
+                listEl.innerHTML = '<p class="profile-empty">No activity yet</p>';
+            } else {
+                listEl.innerHTML = activity.slice(0, 15).map(a => {
+                    const timeStr = a.time ? new Date(a.time).toLocaleString('en-IN', {
+                        day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                    }) : '';
+                    const badgeClass = a.status === 'resolved' ? 'resolved' : 'pending';
+                    return `
+                        <div class="profile-activity-item">
+                            <div class="profile-activity-dot ${a.type}"></div>
+                            <div class="profile-activity-info">
+                                <div class="profile-activity-title">${a.title}</div>
+                                <div class="profile-activity-desc">${a.desc}</div>
+                            </div>
+                            <div class="profile-activity-time">
+                                ${timeStr}<br>
+                                <span class="profile-activity-badge ${badgeClass}">${a.status}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Render breakdown
+            const total = trafficCount + crimeCount + sosCount + msgCount || 1;
+            const breakdownEl = document.getElementById('profile-breakdown');
+            const items = [
+                { label: 'Traffic Reports', count: trafficCount, cls: 'traffic' },
+                { label: 'Crime Reports', count: crimeCount, cls: 'crime' },
+                { label: 'SOS Alerts', count: sosCount, cls: 'sos' },
+                { label: 'Messages', count: msgCount, cls: 'message' },
+            ].filter(i => i.count > 0);
+
+            if (items.length === 0) {
+                breakdownEl.innerHTML = '<p class="profile-empty">No data</p>';
+            } else {
+                breakdownEl.innerHTML = items.map(i => `
+                    <div class="profile-breakdown-item">
+                        <div class="profile-breakdown-header">
+                            <span>${i.label}</span><span>${i.count}</span>
+                        </div>
+                        <div class="profile-breakdown-bar">
+                            <div class="profile-breakdown-fill ${i.cls}" style="width: ${(i.count / total * 100).toFixed(1)}%"></div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+    })();
+
 });
