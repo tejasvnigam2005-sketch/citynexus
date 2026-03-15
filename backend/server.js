@@ -41,25 +41,40 @@ if (GEMINI_API_KEY) {
 const MONGO_URI =
   process.env.MONGO_URI || "mongodb://localhost:27017/citynexus";
 
-// ── MongoDB Connection ──────────────────────────────────────────────
-let cachedConnection = null;
+// ── MongoDB Connection (optimized for serverless) ───────────────────
+// Cache the connection PROMISE (not just the result) so concurrent
+// cold-start requests share the same in-flight connection attempt.
+let cachedPromise = null;
 
 async function connectDB() {
-  if (cachedConnection && mongoose.connection.readyState === 1) {
-    return cachedConnection;
+  // Already connected — reuse immediately
+  if (mongoose.connection.readyState === 1) {
+    return mongoose.connection;
   }
-  try {
-    cachedConnection = await mongoose.connect(MONGO_URI, {
-      bufferCommands: false,
-      serverSelectionTimeoutMS: 10000,
-    });
-    console.log("[CityNexus] ✓ MongoDB connected →", MONGO_URI);
-    return cachedConnection;
-  } catch (err) {
-    console.error("[CityNexus] ✗ MongoDB connection failed:", err.message);
-    cachedConnection = null;
+
+  // Connection in progress — reuse the same promise
+  if (cachedPromise) {
+    return cachedPromise;
+  }
+
+  // New connection — cache the promise
+  cachedPromise = mongoose.connect(MONGO_URI, {
+    bufferCommands: false,
+    maxPoolSize: 5,               // limit connections (free tier friendly)
+    minPoolSize: 1,               // keep at least 1 alive
+    serverSelectionTimeoutMS: 8000,
+    socketTimeoutMS: 45000,
+    maxIdleTimeMS: 30000,         // close idle connections after 30s
+  }).then((conn) => {
+    console.log("[CityNexus] ✓ MongoDB connected");
+    return conn;
+  }).catch((err) => {
+    console.error("[CityNexus] ✗ MongoDB failed:", err.message);
+    cachedPromise = null;         // reset so next request retries
     throw err;
-  }
+  });
+
+  return cachedPromise;
 }
 
 // Connect eagerly (for local dev) and ensure connection middleware (for serverless)
