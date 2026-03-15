@@ -15,6 +15,47 @@
 <body>
 
   <!-- ================================================
+       LOGIN / SIGN-IN OVERLAY (one-time)
+  ================================================ -->
+  <div id="login-overlay" class="login-overlay">
+    <div class="login-particles">
+      <div class="login-particle"></div>
+      <div class="login-particle"></div>
+      <div class="login-particle"></div>
+      <div class="login-particle"></div>
+      <div class="login-particle"></div>
+    </div>
+    <div class="login-card">
+      <div class="login-header">
+        <div class="login-logo">
+          <div class="login-logo-icon"><i class="fas fa-city"></i></div>
+          <h1>City<span>Nexus</span></h1>
+        </div>
+        <p class="login-tagline">Smart City Command Platform</p>
+      </div>
+      <form id="login-form" class="login-form" autocomplete="off">
+        <div class="login-field">
+          <label for="login-name"><i class="fas fa-user"></i> Full Name</label>
+          <input type="text" id="login-name" placeholder="Enter your full name" required minlength="2" />
+        </div>
+        <div class="login-field">
+          <label for="login-phone"><i class="fas fa-phone"></i> Phone Number</label>
+          <input type="tel" id="login-phone" placeholder="Enter your phone number" required pattern="[0-9]{10,15}" title="Enter a valid phone number (10-15 digits)" />
+        </div>
+        <div class="login-field">
+          <label for="login-email"><i class="fas fa-envelope"></i> Gmail</label>
+          <input type="email" id="login-email" placeholder="yourname@gmail.com" required />
+        </div>
+        <button type="submit" id="login-submit" class="login-submit">
+          <span>Enter CityNexus</span>
+          <i class="fas fa-arrow-right"></i>
+        </button>
+      </form>
+      <p class="login-footer">Your data is stored locally and never shared</p>
+    </div>
+  </div>
+
+  <!-- ================================================
        NAVIGATION
   ================================================ -->
   <nav id="navbar" class="navbar">

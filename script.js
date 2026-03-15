@@ -8,6 +8,64 @@ const BACKEND_URL = window.location.hostname === 'localhost' || window.location.
     ? `${window.location.protocol}//${window.location.hostname}:3000`
     : 'https://backend-murex-tau-22.vercel.app';
 
+/* ─────────────────────────────────────────────────
+   ONE-TIME LOGIN GATE
+   ───────────────────────────────────────────────── */
+(function loginGate() {
+    const overlay = document.getElementById('login-overlay');
+    if (!overlay) return;
+
+    // Check if user already signed in
+    const savedUser = localStorage.getItem('citynexus_user');
+    if (savedUser) {
+        overlay.classList.add('removed');
+        return;
+    }
+
+    // Show overlay and lock scroll
+    document.body.style.overflow = 'hidden';
+
+    const form = document.getElementById('login-form');
+    const card = overlay.querySelector('.login-card');
+
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const name = document.getElementById('login-name').value.trim();
+        const phone = document.getElementById('login-phone').value.trim();
+        const email = document.getElementById('login-email').value.trim();
+
+        // Validate
+        if (!name || name.length < 2) {
+            card.classList.add('shake');
+            setTimeout(() => card.classList.remove('shake'), 500);
+            return;
+        }
+        if (!/^[0-9]{10,15}$/.test(phone)) {
+            card.classList.add('shake');
+            setTimeout(() => card.classList.remove('shake'), 500);
+            return;
+        }
+        if (!email.includes('@')) {
+            card.classList.add('shake');
+            setTimeout(() => card.classList.remove('shake'), 500);
+            return;
+        }
+
+        // Save to localStorage
+        const userData = { name, phone, email, signedInAt: new Date().toISOString() };
+        localStorage.setItem('citynexus_user', JSON.stringify(userData));
+
+        // Animate out
+        overlay.classList.add('hidden');
+        document.body.style.overflow = '';
+
+        setTimeout(() => {
+            overlay.classList.add('removed');
+        }, 700);
+    });
+})();
+
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- Check backend health on load ---
