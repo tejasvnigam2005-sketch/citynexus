@@ -3,10 +3,10 @@
    Core Interactions & AI Logic — Full-Stack Edition
    ================================================ */
 
-// Backend URL — same origin when served from Express
+// Backend URL — localhost for dev, Vercel backend for production
 const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? `${window.location.protocol}//${window.location.hostname}:3000`
-    : '';
+    : 'https://backend-murex-tau-22.vercel.app';
 
 document.addEventListener('DOMContentLoaded', () => {
 
