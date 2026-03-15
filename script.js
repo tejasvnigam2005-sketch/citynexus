@@ -585,18 +585,15 @@ document.addEventListener('DOMContentLoaded', () => {
         animate();
     }
 
-    // --- Live City Map Initialization (Leaflet) ---
+    // --- Live City Map Initialization (Leaflet + Nominatim Search) ---
     const mapElement = document.getElementById('city-map');
     if (mapElement && typeof L !== 'undefined') {
-        const map = L.map('city-map').setView([28.6139, 77.2090], 13); // Default Center (Delhi)
+        const map = L.map('city-map').setView([28.6139, 77.2090], 13);
 
-        // Custom Marker
-        const documentStyle = getComputedStyle(document.body);
-        const redColor = documentStyle.getPropertyValue('--accent-red') || '#ef4444';
-        
+        // Custom Marker Icon
         const incidentIcon = L.divIcon({
             className: 'custom-div-icon',
-            html: `<i class='fas fa-exclamation-circle' style='color:${redColor}; font-size: 28px; filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.8));'></i>`,
+            html: `<i class='fas fa-exclamation-circle' style='color:#ef4444; font-size: 28px; filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.8));'></i>`,
             iconSize: [28, 28],
             iconAnchor: [14, 14],
             popupAnchor: [0, -14]
@@ -606,20 +603,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const normalLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
         });
-        
         const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Tiles &copy; Esri'
         });
-
-        // 3D/Dark Terrain View
         const threeDLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; CARTO'
         });
 
-        // Set default layer
         normalLayer.addTo(map);
 
-        // Markers array — will hold both initial and DB-loaded markers
         const markers = [];
 
         // Load existing incidents from database onto map
@@ -641,7 +633,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     console.log(`[CityNexus] Loaded ${data.incidents.length} incident(s) from database onto map.`);
                 } else {
-                    // No incidents in DB, show default markers
                     const defaultMarkers = [
                         L.marker([28.6139, 77.2090], {icon: incidentIcon}).bindPopup("<h4>Traffic Collision</h4><p>High Priority. Units dispatched.</p>"),
                         L.marker([28.6339, 77.2190], {icon: incidentIcon}).bindPopup("<h4>Suspicious Activity</h4><p>Reported near Metro Station.</p>")
@@ -650,7 +641,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.log('[CityNexus] No DB incidents found, showing default markers.');
                 }
             } catch (err) {
-                // Backend unreachable — show default markers
                 const defaultMarkers = [
                     L.marker([28.6139, 77.2090], {icon: incidentIcon}).bindPopup("<h4>Traffic Collision</h4><p>High Priority. Units dispatched.</p>"),
                     L.marker([28.6339, 77.2190], {icon: incidentIcon}).bindPopup("<h4>Suspicious Activity</h4><p>Reported near Metro Station.</p>")
@@ -667,30 +657,111 @@ document.addEventListener('DOMContentLoaded', () => {
                 mapBtns.forEach(b => b.classList.remove('active'));
                 const target = e.currentTarget;
                 target.classList.add('active');
-                
                 const mode = target.getAttribute('data-mode');
-                
-                // Remove all tile layers
-                map.eachLayer((layer) => {
-                    if (layer._url) { // If it has a url, it's a tilLayer
-                        map.removeLayer(layer);
-                    }
-                });
-
+                map.eachLayer((layer) => { if (layer._url) map.removeLayer(layer); });
                 if (mode === 'normal') normalLayer.addTo(map);
                 else if (mode === 'satellite') satelliteLayer.addTo(map);
                 else if (mode === '3d') threeDLayer.addTo(map);
             });
         });
 
-        // --- Manual Report Form Handling ---
-        const incidentForm = document.getElementById('incident-form');
+        // --- Interactive Location Search (Nominatim) ---
         const locateBtn = document.getElementById('btn-locate');
         const locationInput = document.getElementById('incident-location');
 
+        // Create search results dropdown
+        const searchDropdown = document.createElement('div');
+        searchDropdown.className = 'location-search-dropdown';
+        locationInput.parentElement.appendChild(searchDropdown);
+
+        let searchTimeout = null;
+
+        // Nominatim search as user types
+        locationInput.addEventListener('input', () => {
+            clearTimeout(searchTimeout);
+            const query = locationInput.value.trim();
+
+            if (query.length < 3) {
+                searchDropdown.innerHTML = '';
+                searchDropdown.style.display = 'none';
+                return;
+            }
+
+            // Check if it's coordinates (e.g. "28.6139, 77.2090")
+            const coordMatch = query.match(/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/);
+            if (coordMatch) {
+                searchDropdown.innerHTML = '';
+                searchDropdown.style.display = 'none';
+                return;
+            }
+
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`);
+                    const results = await res.json();
+
+                    if (results.length > 0) {
+                        searchDropdown.innerHTML = results.map((r, i) => `
+                            <div class="search-result-item" data-lat="${r.lat}" data-lng="${r.lon}" data-name="${r.display_name}">
+                                <i class="fas fa-map-marker-alt"></i>
+                                <div class="search-result-text">
+                                    <span class="search-result-name">${r.display_name.split(',')[0]}</span>
+                                    <span class="search-result-address">${r.display_name.split(',').slice(1, 3).join(',')}</span>
+                                </div>
+                            </div>
+                        `).join('');
+                        searchDropdown.style.display = 'block';
+
+                        // Click on a result
+                        searchDropdown.querySelectorAll('.search-result-item').forEach(item => {
+                            item.addEventListener('click', () => {
+                                const lat = parseFloat(item.dataset.lat);
+                                const lng = parseFloat(item.dataset.lng);
+                                const name = item.dataset.name;
+
+                                locationInput.value = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                                locationInput.setAttribute('data-place-name', name);
+                                map.setView([lat, lng], 16);
+
+                                // Drop a temporary marker
+                                const tempMarker = L.marker([lat, lng]).addTo(map)
+                                    .bindPopup(`<b>${name.split(',')[0]}</b><br><span style="font-size:11px;opacity:0.7;">${name}</span>`)
+                                    .openPopup();
+
+                                searchDropdown.innerHTML = '';
+                                searchDropdown.style.display = 'none';
+                            });
+                        });
+                    } else {
+                        searchDropdown.innerHTML = '<div class="search-result-item no-results"><i class="fas fa-search"></i><span>No results found</span></div>';
+                        searchDropdown.style.display = 'block';
+                    }
+                } catch (err) {
+                    console.warn('[Search] Nominatim error:', err.message);
+                    searchDropdown.style.display = 'none';
+                }
+            }, 400); // debounce 400ms
+        });
+
+        // Close dropdown on outside click
+        document.addEventListener('click', (e) => {
+            if (!locationInput.contains(e.target) && !searchDropdown.contains(e.target)) {
+                searchDropdown.style.display = 'none';
+            }
+        });
+
+        // --- Click on map to pick coordinates ---
+        map.on('click', (e) => {
+            const lat = e.latlng.lat.toFixed(4);
+            const lng = e.latlng.lng.toFixed(4);
+            locationInput.value = `${lat}, ${lng}`;
+            locationInput.removeAttribute('data-place-name');
+        });
+
+        // GPS locate button
         locateBtn.addEventListener('click', () => {
             locationInput.value = "Acquiring GPS coordinates...";
-            if("geolocation" in navigator) {
+            if ("geolocation" in navigator) {
                 navigator.geolocation.getCurrentPosition((pos) => {
                     locationInput.value = `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
                     map.setView([pos.coords.latitude, pos.coords.longitude], 15);
@@ -702,11 +773,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        // --- Manual Report Form Handling ---
+        const incidentForm = document.getElementById('incident-form');
+
         incidentForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = incidentForm.querySelector('.submit-btn');
             const ogContent = btn.innerHTML;
-            
+
             btn.innerHTML = '<span>Transmitting...</span> <i class="fas fa-spinner fa-spin"></i>';
             btn.style.background = "var(--accent-yellow)";
             btn.style.color = "#000";
@@ -716,15 +790,15 @@ document.addEventListener('DOMContentLoaded', () => {
             // Gather form data
             const incidentType = document.getElementById('incident-type').value;
             const incidentLocation = locationInput.value;
+            const placeName = locationInput.getAttribute('data-place-name') || incidentLocation;
             const incidentDesc = document.getElementById('incident-desc').value;
             const incidentUrgent = document.getElementById('incident-urgent').checked;
 
-            // Parse coordinates if available
+            // Parse coordinates
             let coordinates = {};
-            const locVal = incidentLocation;
-            const coords = locVal.split(',');
-            if (coords.length === 2 && !isNaN(parseFloat(coords[0]))) {
-                coordinates = { lat: parseFloat(coords[0]), lng: parseFloat(coords[1]) };
+            const coords = incidentLocation.split(',');
+            if (coords.length === 2 && !isNaN(parseFloat(coords[0])) && !isNaN(parseFloat(coords[1]))) {
+                coordinates = { lat: parseFloat(coords[0].trim()), lng: parseFloat(coords[1].trim()) };
             }
 
             // Save to backend
@@ -734,7 +808,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         type: incidentType,
-                        location: incidentLocation,
+                        location: placeName,
                         coordinates,
                         description: incidentDesc,
                         urgent: incidentUrgent,
@@ -759,15 +833,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 btn.style.color = "#fff";
             }
 
-            // Add marker to map if location is coordinates
-            if (coords.length === 2 && !isNaN(parseFloat(coords[0]))) {
-                const newMarker = L.marker([parseFloat(coords[0]), parseFloat(coords[1])], {icon: incidentIcon})
+            // Add marker to map
+            if (coordinates.lat && coordinates.lng) {
+                const newMarker = L.marker([coordinates.lat, coordinates.lng], {icon: incidentIcon})
                     .addTo(map)
                     .bindPopup("<h4>New Incident Reported</h4><p>Pending review by command center.</p>")
                     .openPopup();
                 markers.push(newMarker);
             }
 
+            locationInput.removeAttribute('data-place-name');
             setTimeout(() => {
                 incidentForm.reset();
                 btn.innerHTML = ogContent;
@@ -1098,8 +1173,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             } catch (err) {
                 console.error('[Accident Detection] Error:', err);
-                addLogEntry('result-critical', `✗ Detection failed: ${err.message}`, 'critical');
-                addLogEntry('info', 'Make sure the Node.js backend (port 3000) and Python AI service (port 5000) are running.', 'warn');
+                if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+                    addLogEntry('result-critical', '✗ Backend server unreachable. Start the Node.js server on port 3000.', 'critical');
+                } else if (err.message.includes('503') || err.message.includes('Gemini')) {
+                    addLogEntry('result-critical', '✗ Gemini AI not configured. Check GEMINI_API_KEY in backend .env file.', 'critical');
+                } else {
+                    addLogEntry('result-critical', `✗ Detection failed: ${err.message}`, 'critical');
+                }
+                addLogEntry('info', 'AI detection is powered by Google Gemini Vision. Ensure the API key is set.', 'warn');
             } finally {
                 analyzeBtn.classList.remove('running');
                 analyzeBtn.disabled = false;

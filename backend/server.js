@@ -1,6 +1,6 @@
 /* ================================================
    CityNexus — Node.js Express Backend
-   Full-stack: MongoDB + AI Proxy + Static Serving
+   Full-stack: MongoDB + Gemini AI + Static Serving
    Runs on port 3000
    ================================================ */
 
@@ -14,6 +14,7 @@ const path = require("path");
 const fs = require("fs");
 const FormData = require("form-data");
 const mongoose = require("mongoose");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 // ── Models ──────────────────────────────────────────────────────────
 const Incident = require("./models/Incident");
@@ -24,19 +25,54 @@ const ContactMessage = require("./models/ContactMessage");
 const app = express();
 const PORT = process.env.PORT || 3000;
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://localhost:5000";
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+
+// ── Gemini AI Initialization ────────────────────────────────────────
+let geminiModel = null;
+let geminiVisionModel = null;
+if (GEMINI_API_KEY) {
+  const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+  geminiModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
+  geminiVisionModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  console.log("[CityNexus] ✓ Gemini AI initialized");
+} else {
+  console.warn("[CityNexus] ⚠ GEMINI_API_KEY not set — AI features disabled");
+}
 const MONGO_URI =
   process.env.MONGO_URI || "mongodb://localhost:27017/citynexus";
 
 // ── MongoDB Connection ──────────────────────────────────────────────
-mongoose
-  .connect(MONGO_URI)
-  .then(() => console.log("[CityNexus] ✓ MongoDB connected →", MONGO_URI))
-  .catch((err) => {
+let cachedConnection = null;
+
+async function connectDB() {
+  if (cachedConnection && mongoose.connection.readyState === 1) {
+    return cachedConnection;
+  }
+  try {
+    cachedConnection = await mongoose.connect(MONGO_URI, {
+      bufferCommands: false,
+      serverSelectionTimeoutMS: 10000,
+    });
+    console.log("[CityNexus] ✓ MongoDB connected →", MONGO_URI);
+    return cachedConnection;
+  } catch (err) {
     console.error("[CityNexus] ✗ MongoDB connection failed:", err.message);
-    console.error(
-      "[CityNexus]   Make sure MongoDB is running (mongod or MongoDB Compass)."
-    );
-  });
+    cachedConnection = null;
+    throw err;
+  }
+}
+
+// Connect eagerly (for local dev) and ensure connection middleware (for serverless)
+connectDB().catch(() => {});
+
+app.use(async (_req, _res, next) => {
+  try {
+    await connectDB();
+  } catch (err) {
+    // Continue anyway — individual routes will handle DB errors
+  }
+  next();
+});
 
 // ── Middleware ───────────────────────────────────────────────────────
 app.use(cors());
@@ -45,8 +81,8 @@ app.use(express.json());
 // Serve frontend static files from the project root
 app.use(express.static(path.join(__dirname, "..")));
 
-// ── Multer setup — temp storage in /uploads ─────────────────────────
-const uploadsDir = path.join(__dirname, "uploads");
+// ── Multer setup — temp storage (/tmp for serverless, /uploads for local)
+const uploadsDir = process.env.VERCEL ? '/tmp' : path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -100,13 +136,7 @@ app.get("/api/health", async (_req, res) => {
   const dbStatus =
     dbState === 1 ? "connected" : dbState === 2 ? "connecting" : "disconnected";
 
-  let aiStatus = "unreachable";
-  try {
-    await axios.get(`${AI_SERVICE_URL}/`, { timeout: 3000 });
-    aiStatus = "reachable";
-  } catch (_) {
-    /* silent */
-  }
+  const aiStatus = geminiModel ? "Gemini AI ready" : "no API key";
 
   res.json({
     status: "CityNexus Backend Running",
@@ -119,11 +149,14 @@ app.get("/api/health", async (_req, res) => {
 
 // ── AI health relay ─────────────────────────────────────────────────
 app.get("/ai/health", async (_req, res) => {
+  if (!geminiModel) {
+    return res.status(503).json({ ai_service: "unavailable", error: "GEMINI_API_KEY not configured" });
+  }
   try {
-    const { data } = await axios.get(`${AI_SERVICE_URL}/`);
-    res.json({ ai_service: "reachable", ...data });
+    const result = await geminiModel.generateContent("Say OK");
+    res.json({ ai_service: "Gemini AI", status: "operational", model: "gemini-2.0-flash" });
   } catch (err) {
-    res.status(503).json({ ai_service: "unreachable", error: err.message });
+    res.status(503).json({ ai_service: "error", error: err.message });
   }
 });
 
@@ -242,7 +275,7 @@ app.get("/api/sos", async (_req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────
-//  ACCIDENT DETECTION — proxy to Python AI + save to DB
+//  ACCIDENT DETECTION — Gemini Vision AI
 // ─────────────────────────────────────────────────────────────────────
 
 app.post("/api/detect", upload.single("image"), async (req, res) => {
@@ -254,60 +287,104 @@ app.post("/api/detect", upload.single("image"), async (req, res) => {
     });
   }
 
+  if (!geminiVisionModel) {
+    cleanupFile(filePath);
+    return res.status(503).json({
+      error: "Gemini AI not configured. Set GEMINI_API_KEY in .env",
+    });
+  }
+
   try {
-    // Build form-data to forward to Python service
-    const form = new FormData();
-    form.append("image", fs.createReadStream(filePath), {
-      filename: req.file.originalname,
-      contentType: req.file.mimetype,
-    });
+    // Read image as base64
+    const imageBuffer = fs.readFileSync(filePath);
+    const base64Image = imageBuffer.toString("base64");
+    const mimeType = req.file.mimetype;
 
-    // Forward to Python AI microservice
-    const aiResponse = await axios.post(`${AI_SERVICE_URL}/detect`, form, {
-      headers: form.getHeaders(),
-      timeout: 60000, // 60 s — model inference can be slow first time
-      maxContentLength: Infinity,
-      maxBodyLength: Infinity,
-    });
+    // Build Gemini Vision prompt
+    const prompt = `You are a traffic and accident detection AI system. Analyze this image carefully.
 
-    const aiData = aiResponse.data;
+Respond ONLY with valid JSON (no markdown, no code fences). Use this exact format:
+{
+  "count": <number of objects detected>,
+  "hasAccident": <true or false>,
+  "severity": "<none|minor|moderate|severe|critical>",
+  "summary": "<one-line description of the scene>",
+  "detections": [
+    {
+      "label": "<object name like car, truck, accident, person, traffic_jam>",
+      "confidence": <0.0 to 1.0>,
+      "bbox": [<x_percent>, <y_percent>, <width_percent>, <height_percent>]
+    }
+  ]
+}
+
+Rules:
+- Detect vehicles, pedestrians, accidents, traffic jams, damaged vehicles
+- If there is an accident or collision, set hasAccident=true and assign severity
+- bbox values should be rough percentage estimates (0-100) of position in the image
+- confidence should reflect how certain you are about each detection
+- Always return at least the overall scene description in summary`;
+
+    // Send to Gemini Vision
+    const result = await geminiVisionModel.generateContent([
+      prompt,
+      {
+        inlineData: {
+          mimeType: mimeType,
+          data: base64Image,
+        },
+      },
+    ]);
+
+    const responseText = result.response.text();
+
+    // Parse JSON from Gemini response (handle potential markdown wrapping)
+    let aiData;
+    try {
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      aiData = JSON.parse(jsonMatch ? jsonMatch[0] : responseText);
+    } catch (parseErr) {
+      console.error("[detect] Gemini JSON parse error:", parseErr.message);
+      console.error("[detect] Raw response:", responseText);
+      aiData = {
+        count: 0,
+        hasAccident: false,
+        severity: "none",
+        summary: responseText.substring(0, 200),
+        detections: [],
+      };
+    }
+
+    // Ensure required fields exist
+    aiData.count = aiData.count || (aiData.detections ? aiData.detections.length : 0);
+    aiData.hasAccident = aiData.hasAccident || false;
+    aiData.detections = aiData.detections || [];
+    aiData.severity = aiData.severity || "none";
 
     // Save detection to database
     try {
-      const hasAccident =
-        aiData.detections &&
-        aiData.detections.some((d) =>
-          d.label.toLowerCase().includes("accident")
-        );
-
       await Detection.create({
         filename: req.file.originalname,
-        detections: aiData.detections || [],
-        count: aiData.count || 0,
-        hasAccident: hasAccident || false,
-        sosTriggered: hasAccident || false,
+        detections: aiData.detections,
+        count: aiData.count,
+        hasAccident: aiData.hasAccident,
+        sosTriggered: aiData.hasAccident && (aiData.severity === "severe" || aiData.severity === "critical"),
       });
     } catch (dbErr) {
       console.error("[detect] DB save failed (non-fatal):", dbErr.message);
     }
 
+    console.log(`[detect] Gemini analysis: ${aiData.count} objects, accident=${aiData.hasAccident}, severity=${aiData.severity}`);
+
     // Return AI results to the client
     return res.json(aiData);
   } catch (err) {
-    console.error("[detect] AI service error:", err.message);
-
-    if (err.response) {
-      // Python service returned an error
-      return res.status(err.response.status).json(err.response.data);
-    }
-
-    return res.status(502).json({
-      error:
-        "AI service unavailable. Make sure the Python server is running on port 5000.",
+    console.error("[detect] Gemini error:", err.message);
+    return res.status(500).json({
+      error: "Gemini AI analysis failed.",
       details: err.message,
     });
   } finally {
-    // Always clean up the temp file
     cleanupFile(filePath);
   }
 });
@@ -367,7 +444,7 @@ app.get("/api/contacts", async (_req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────
-//  AI CHAT — Smart responses with live data from DB
+//  AI CHAT — Gemini-powered with live city data context
 // ─────────────────────────────────────────────────────────────────────
 
 app.post("/api/chat", async (req, res) => {
@@ -376,71 +453,78 @@ app.post("/api/chat", async (req, res) => {
     if (!message)
       return res.status(400).json({ error: "message is required." });
 
+    // Fetch live stats for context
+    const [incidentCount, sosCount, detectionCount, trafficCount, crimeCount, recentIncidents] = await Promise.all([
+      Incident.countDocuments(),
+      SOSAlert.countDocuments(),
+      Detection.countDocuments(),
+      Incident.countDocuments({ type: "traffic" }),
+      Incident.countDocuments({ type: "crime" }),
+      Incident.find().sort({ createdAt: -1 }).limit(5).lean(),
+    ]);
+
+    const recentList = recentIncidents.map(i => `${i.type} at ${i.location} (${i.status})`).join("; ");
+
+    // If Gemini is available, use it
+    if (geminiModel) {
+      const systemPrompt = `You are CityNexus Command AI, an intelligent assistant for a smart city monitoring platform. You have access to LIVE city data:
+
+— Total incidents: ${incidentCount}
+— Traffic incidents: ${trafficCount}
+— Crime incidents: ${crimeCount}
+— SOS alerts: ${sosCount}
+— AI detections performed: ${detectionCount}
+— Recent incidents: ${recentList || "None"}
+
+Rules:
+- Keep responses concise (2-4 sentences max)
+- Use HTML formatting: <strong>, <br>, <em> for emphasis
+- Reference the live data when relevant
+- If user mentions SOS/emergency, confirm help is being dispatched
+- Be professional but friendly, like a command center operator
+- Don't use markdown, only HTML tags`;
+
+      try {
+        const chat = geminiModel.startChat({
+          history: [
+            { role: "user", parts: [{ text: "Initialize" }] },
+            { role: "model", parts: [{ text: systemPrompt }] },
+          ],
+        });
+
+        const result = await chat.sendMessage(message);
+        const geminiResponse = result.response.text();
+
+        return res.json({ success: true, response: geminiResponse });
+      } catch (geminiErr) {
+        console.error("[chat] Gemini error:", geminiErr.message);
+        // Fall through to keyword-based fallback
+      }
+    }
+
+    // Fallback: keyword-based responses with live data
     const lowerMsg = message.toLowerCase();
     let response = "";
 
-    // Fetch real-time stats from database
-    if (
-      lowerMsg.includes("status") ||
-      lowerMsg.includes("stats") ||
-      lowerMsg.includes("dashboard") ||
-      lowerMsg.includes("overview")
-    ) {
-      const [incidentCount, sosCount, detectionCount] = await Promise.all([
-        Incident.countDocuments(),
-        SOSAlert.countDocuments(),
-        Detection.countDocuments(),
-      ]);
-      response = `<strong>City Status Dashboard:</strong><br>📋 ${incidentCount} incident report(s) filed<br>🚨 ${sosCount} SOS alert(s) recorded<br>🔍 ${detectionCount} AI detection(s) performed<br><br>All systems operational.`;
-    } else if (
-      lowerMsg.includes("incident") ||
-      lowerMsg.includes("report")
-    ) {
-      const recent = await Incident.find()
-        .sort({ createdAt: -1 })
-        .limit(3)
-        .lean();
-      if (recent.length > 0) {
-        const list = recent
-          .map(
-            (i) =>
-              `• <strong>${i.type}</strong> at ${i.location} — ${i.status}`
-          )
-          .join("<br>");
+    if (lowerMsg.includes("status") || lowerMsg.includes("stats") || lowerMsg.includes("dashboard")) {
+      response = `<strong>City Status:</strong><br>📋 ${incidentCount} incident(s)<br>🚨 ${sosCount} SOS alert(s)<br>🔍 ${detectionCount} AI detection(s)<br>All systems operational.`;
+    } else if (lowerMsg.includes("incident") || lowerMsg.includes("report")) {
+      if (recentIncidents.length > 0) {
+        const list = recentIncidents.slice(0, 3).map(i => `• <strong>${i.type}</strong> at ${i.location} — ${i.status}`).join("<br>");
         response = `<strong>Recent Incidents:</strong><br>${list}`;
       } else {
-        response =
-          "No incidents have been reported yet. You can file one using the Incident Report form.";
+        response = "No incidents reported yet. Use the Incident Report form to file one.";
       }
     } else if (lowerMsg.includes("sos") || lowerMsg.includes("emergency")) {
-      response =
-        "Activating Emergency SOS sequence now. Stay calm, help is being dispatched.";
-    } else if (
-      lowerMsg.includes("traffic") ||
-      lowerMsg.includes("congestion")
-    ) {
-      const trafficIncidents = await Incident.countDocuments({
-        type: "traffic",
-      });
-      response = `Current traffic status: <strong>${trafficIncidents} traffic incident(s)</strong> reported. AI has initiated dynamic rerouting protocols and adjusted signals.`;
-    } else if (lowerMsg.includes("crime") || lowerMsg.includes("police")) {
-      const crimeIncidents = await Incident.countDocuments({ type: "crime" });
-      response = `Crime surveillance active. <strong>${crimeIncidents} crime incident(s)</strong> logged. Police units are on standby.`;
-    } else if (
-      lowerMsg.includes("detect") ||
-      lowerMsg.includes("accident")
-    ) {
-      const accidentDetections = await Detection.countDocuments({
-        hasAccident: true,
-      });
-      const totalDetections = await Detection.countDocuments();
-      response = `AI Detection System: <strong>${totalDetections}</strong> total analysis performed, <strong>${accidentDetections}</strong> accident(s) detected. Upload an image in the Accident Detection section for real-time analysis.`;
+      response = "Activating Emergency SOS sequence now. Stay calm, help is being dispatched.";
+    } else if (lowerMsg.includes("traffic")) {
+      response = `Traffic status: <strong>${trafficCount} traffic incident(s)</strong> reported. AI rerouting protocols active.`;
+    } else if (lowerMsg.includes("crime")) {
+      response = `Crime surveillance: <strong>${crimeCount} crime incident(s)</strong> logged. Police on standby.`;
     } else if (lowerMsg.includes("hello") || lowerMsg.includes("hi")) {
-      response =
-        "Hello! I'm CityNexus Command AI. I can pull <strong>live data</strong> from the city database. Try asking about <strong>status</strong>, <strong>incidents</strong>, <strong>traffic</strong>, or <strong>crime</strong>.";
+      response = "Hello! I'm CityNexus Command AI powered by <strong>Gemini</strong>. Ask me about <strong>status</strong>, <strong>incidents</strong>, <strong>traffic</strong>, or <strong>crime</strong>.";
     } else {
-      response =
-        "I am CityNexus Command AI. I can now access <strong>live city data</strong>. Ask me about the city <strong>status</strong>, check <strong>traffic</strong>, view recent <strong>incidents</strong>, report an accident, or activate the <strong>SOS</strong>.";
+      response = "I'm CityNexus Command AI. Ask about city <strong>status</strong>, <strong>traffic</strong>, <strong>incidents</strong>, or activate <strong>SOS</strong>.";
     }
 
     res.json({ success: true, response });
@@ -448,8 +532,7 @@ app.post("/api/chat", async (req, res) => {
     console.error("[chat] Error:", err.message);
     res.json({
       success: true,
-      response:
-        "I encountered an error accessing the database. Basic commands still work — you can ask about traffic, crime, or activate the SOS.",
+      response: "I encountered an error. Basic commands still work — ask about traffic, crime, or activate the SOS.",
     });
   }
 });
@@ -502,19 +585,25 @@ app.use((err, _req, res, _next) => {
   }
 });
 
-// ── Fallback: serve index.html for root ─────────────────────────────
-app.get("{*path}", (_req, res) => {
-  res.sendFile(path.join(__dirname, "..", "index.html"));
-});
+// ── Fallback: serve index.html for root (local dev only) ────────────
+if (!process.env.VERCEL) {
+  app.get("{*path}", (_req, res) => {
+    res.sendFile(path.join(__dirname, "..", "index.html"));
+  });
+}
 
-// ── Start server ────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`\n╔══════════════════════════════════════════════════╗`);
-  console.log(`║        CityNexus — Smart City Backend            ║`);
-  console.log(`╠══════════════════════════════════════════════════╣`);
-  console.log(`║  Server   → http://localhost:${PORT}                ║`);
-  console.log(`║  Frontend → http://localhost:${PORT}                ║`);
-  console.log(`║  AI Svc   → ${AI_SERVICE_URL.padEnd(35)}║`);
-  console.log(`║  MongoDB  → ${MONGO_URI.length > 35 ? MONGO_URI.substring(0, 32) + "..." : MONGO_URI.padEnd(35)}║`);
-  console.log(`╚══════════════════════════════════════════════════╝\n`);
-});
+// ── Start server (local dev) / Export for Vercel ────────────────────
+if (process.env.VERCEL) {
+  module.exports = app;
+} else {
+  app.listen(PORT, () => {
+    console.log(`\n╔══════════════════════════════════════════════════╗`);
+    console.log(`║        CityNexus — Smart City Backend            ║`);
+    console.log(`╠══════════════════════════════════════════════════╣`);
+    console.log(`║  Server   → http://localhost:${PORT}                ║`);
+    console.log(`║  Frontend → http://localhost:${PORT}                ║`);
+    console.log(`║  AI Svc   → ${AI_SERVICE_URL.padEnd(35)}║`);
+    console.log(`║  MongoDB  → ${MONGO_URI.length > 35 ? MONGO_URI.substring(0, 32) + "..." : MONGO_URI.padEnd(35)}║`);
+    console.log(`╚══════════════════════════════════════════════════╝\n`);
+  });
+}
