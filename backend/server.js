@@ -152,22 +152,29 @@ app.get("/api/health", async (_req, res) => {
     dbState === 1 ? "connected" : dbState === 2 ? "connecting" : "disconnected";
 
   // Check Python AI service
-  let aiStatus = "unknown";
+  let detrStatus = "offline";
   try {
-    const aiRes = await axios.get(`${AI_SERVICE_URL}/`, { timeout: 3000 });
-    aiStatus = aiRes.data?.status === "ok" ? "DETR model ready" : "available";
+    const aiRes = await axios.get(`${AI_SERVICE_URL}/`, { timeout: 2000 });
+    detrStatus = aiRes.data?.status === "ok" ? "ready" : "available";
   } catch {
-    aiStatus = "offline (start with: python ai/detect.py)";
+    detrStatus = "offline";
   }
 
-  // Gemini chat status
-  const chatStatus = geminiModel ? "Gemini chat ready" : "no API key";
+  const geminiStatus = geminiVisionModel ? "ready" : "no API key";
+  const chatStatus = geminiModel ? "ready" : "no API key";
+
+  // Determine active detection engine
+  const detectionEngine =
+    detrStatus === "ready" ? "DETR (primary)" :
+    geminiStatus === "ready" ? "Gemini Vision (fallback)" : "none";
 
   res.json({
     status: "CityNexus Backend Running",
     port: PORT,
     database: dbStatus,
-    ai_detection: aiStatus,
+    ai_detection: detectionEngine,
+    ai_detr: detrStatus,
+    ai_gemini_vision: geminiStatus,
     ai_chat: chatStatus,
     timestamp: new Date().toISOString(),
   });
@@ -298,8 +305,90 @@ app.get("/api/sos", async (_req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────
-//  ACCIDENT DETECTION — Python DETR Service
+//  ACCIDENT DETECTION — Hybrid: DETR (local) → Gemini Vision (fallback)
 // ─────────────────────────────────────────────────────────────────────
+
+// Try Python DETR service
+async function detectWithDETR(filePath, originalname, mimetype) {
+  const formData = new FormData();
+  formData.append("image", fs.createReadStream(filePath), {
+    filename: originalname,
+    contentType: mimetype,
+  });
+
+  const response = await axios.post(`${AI_SERVICE_URL}/detect`, formData, {
+    headers: formData.getHeaders(),
+    timeout: 15000,
+    maxContentLength: 50 * 1024 * 1024,
+  });
+
+  const data = response.data;
+  return {
+    success: true,
+    model: "DETR",
+    count: data.count || 0,
+    detections: data.detections || [],
+    hasAccident: (data.detections || []).some(
+      (d) => d.label && d.label.toLowerCase().includes("accident")
+    ),
+    severity: "none",
+    summary: `DETR detected ${data.count || 0} objects`,
+  };
+}
+
+// Fallback: Gemini Vision AI
+async function detectWithGemini(filePath, mimetype) {
+  if (!geminiVisionModel) {
+    throw new Error("Gemini AI not configured");
+  }
+
+  const imageBuffer = fs.readFileSync(filePath);
+  const base64Image = imageBuffer.toString("base64");
+
+  const prompt = `You are a traffic and accident detection AI. Analyze this image.
+
+Respond ONLY with valid JSON (no markdown, no code fences):
+{
+  "count": <number of objects detected>,
+  "hasAccident": <true or false>,
+  "severity": "<none|minor|moderate|severe|critical>",
+  "summary": "<one-line description>",
+  "detections": [
+    {
+      "label": "<car, truck, accident, person, traffic_jam, etc>",
+      "confidence": <0.0 to 1.0>,
+      "box": [<x1>, <y1>, <x2>, <y2>]
+    }
+  ]
+}
+
+Detect vehicles, pedestrians, accidents, traffic jams, damaged vehicles.
+If accident/collision detected, set hasAccident=true with severity.`;
+
+  const result = await geminiVisionModel.generateContent([
+    prompt,
+    { inlineData: { mimeType: mimetype, data: base64Image } },
+  ]);
+
+  const responseText = result.response.text();
+  let aiData;
+  try {
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    aiData = JSON.parse(jsonMatch ? jsonMatch[0] : responseText);
+  } catch {
+    aiData = { count: 0, hasAccident: false, severity: "none", summary: responseText.substring(0, 200), detections: [] };
+  }
+
+  return {
+    success: true,
+    model: "Gemini",
+    count: aiData.count || (aiData.detections ? aiData.detections.length : 0),
+    detections: aiData.detections || [],
+    hasAccident: aiData.hasAccident || false,
+    severity: aiData.severity || "none",
+    summary: aiData.summary || "",
+  };
+}
 
 app.post("/api/detect", upload.single("image"), async (req, res) => {
   const filePath = req.file ? req.file.path : null;
@@ -311,52 +400,41 @@ app.post("/api/detect", upload.single("image"), async (req, res) => {
   }
 
   try {
-    // Forward image to Python DETR microservice
-    const formData = new FormData();
-    formData.append("image", fs.createReadStream(filePath), {
-      filename: req.file.originalname,
-      contentType: req.file.mimetype,
-    });
+    let aiData;
 
-    const aiResponse = await axios.post(
-      `${AI_SERVICE_URL}/detect`,
-      formData,
-      {
-        headers: formData.getHeaders(),
-        timeout: 30000,
-        maxContentLength: 50 * 1024 * 1024,
+    // Strategy: Try DETR first, fall back to Gemini
+    try {
+      aiData = await detectWithDETR(filePath, req.file.originalname, req.file.mimetype);
+      console.log(`[detect] ✓ DETR: ${aiData.count} objects detected`);
+    } catch (detrErr) {
+      console.log(`[detect] DETR unavailable (${detrErr.code || detrErr.message}), falling back to Gemini…`);
+
+      if (geminiVisionModel) {
+        aiData = await detectWithGemini(filePath, req.file.mimetype);
+        console.log(`[detect] ✓ Gemini: ${aiData.count} objects, accident=${aiData.hasAccident}`);
+      } else {
+        return res.status(503).json({
+          error: "No AI service available. Start Python DETR (python ai/detect.py) or configure GEMINI_API_KEY.",
+        });
       }
-    );
-
-    const aiData = aiResponse.data;
+    }
 
     // Save detection to database
     try {
       await Detection.create({
         filename: req.file.originalname,
-        detections: aiData.detections || [],
-        count: aiData.count || 0,
-        hasAccident: (aiData.detections || []).some(d =>
-          d.label && d.label.toLowerCase().includes("accident")
-        ),
-        sosTriggered: false,
+        detections: aiData.detections,
+        count: aiData.count,
+        hasAccident: aiData.hasAccident,
+        sosTriggered: aiData.hasAccident && aiData.severity !== "none" && aiData.severity !== "minor",
       });
     } catch (dbErr) {
       console.error("[detect] DB save failed (non-fatal):", dbErr.message);
     }
 
-    console.log(`[detect] DETR analysis: ${aiData.count} objects detected`);
-
     return res.json(aiData);
   } catch (err) {
-    console.error("[detect] AI service error:", err.message);
-
-    if (err.code === "ECONNREFUSED") {
-      return res.status(503).json({
-        error: "AI detection service is not running. Start the Python service with: python ai/detect.py",
-      });
-    }
-
+    console.error("[detect] Error:", err.message);
     return res.status(500).json({
       error: "AI detection failed.",
       details: err.message,

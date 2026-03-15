@@ -1148,16 +1148,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const data = await response.json();
 
-                addLogEntry('info', `Model inference complete. ${data.count || 0} object(s) detected.`, 'info');
+                const modelUsed = data.model || 'AI';
+                addLogEntry('info', `${modelUsed} inference complete. ${data.count || 0} object(s) detected.`, 'info');
 
                 if (data.detections && data.detections.length > 0) {
-                    const hasAccident = data.detections.some(d => d.label.toLowerCase().includes('accident'));
+                    const hasAccident = data.hasAccident || data.detections.some(d => d.label.toLowerCase().includes('accident'));
 
                     if (hasAccident) {
-                        addLogEntry('result-critical', '⚠ ACCIDENT DETECTED — SOS dispatch recommended.', 'critical');
+                        addLogEntry('result-critical', `⚠ ACCIDENT DETECTED (${modelUsed}) — SOS dispatch recommended.`, 'critical');
                         playBeep(400, 500);
                     } else {
-                        addLogEntry('result-warn', '✓ Objects detected but no accident. Traffic appears monitored.', 'warn');
+                        addLogEntry('result-warn', `✓ Objects detected by ${modelUsed}. No accident found.`, 'warn');
                     }
 
                     // Draw bounding boxes on canvas
@@ -1167,20 +1168,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Populate results table
                     populateResults(data.detections);
                 } else {
-                    addLogEntry('result-ok', '✓ No incidents detected — Scene appears clear.', 'ok');
+                    addLogEntry('result-ok', `✓ No incidents detected by ${modelUsed} — Scene appears clear.`, 'ok');
                     populateResults([]);
                 }
 
             } catch (err) {
                 console.error('[Accident Detection] Error:', err);
                 if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
-                    addLogEntry('result-critical', '✗ Backend server unreachable. Start the Node.js server on port 3000.', 'critical');
-                } else if (err.message.includes('503') || err.message.includes('not running')) {
-                    addLogEntry('result-critical', '✗ Python AI service not running. Start it with: python ai/detect.py', 'critical');
+                    addLogEntry('result-critical', '✗ Backend server unreachable. Ensure the server is running.', 'critical');
+                } else if (err.message.includes('No AI service')) {
+                    addLogEntry('result-critical', '✗ No AI service available. Start Python DETR or configure Gemini API key.', 'critical');
                 } else {
                     addLogEntry('result-critical', `✗ Detection failed: ${err.message}`, 'critical');
                 }
-                addLogEntry('info', 'AI detection uses the DETR model. Ensure the Python service is running on port 5000.', 'warn');
+                addLogEntry('info', 'Detection uses DETR locally and Gemini Vision as fallback on cloud.', 'warn');
             } finally {
                 analyzeBtn.classList.remove('running');
                 analyzeBtn.disabled = false;
