@@ -1175,12 +1175,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('[Accident Detection] Error:', err);
                 if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
                     addLogEntry('result-critical', '✗ Backend server unreachable. Start the Node.js server on port 3000.', 'critical');
-                } else if (err.message.includes('503') || err.message.includes('Gemini')) {
-                    addLogEntry('result-critical', '✗ Gemini AI not configured. Check GEMINI_API_KEY in backend .env file.', 'critical');
+                } else if (err.message.includes('503') || err.message.includes('not running')) {
+                    addLogEntry('result-critical', '✗ Python AI service not running. Start it with: python ai/detect.py', 'critical');
                 } else {
                     addLogEntry('result-critical', `✗ Detection failed: ${err.message}`, 'critical');
                 }
-                addLogEntry('info', 'AI detection is powered by Google Gemini Vision. Ensure the API key is set.', 'warn');
+                addLogEntry('info', 'AI detection uses the DETR model. Ensure the Python service is running on port 5000.', 'warn');
             } finally {
                 analyzeBtn.classList.remove('running');
                 analyzeBtn.disabled = false;
